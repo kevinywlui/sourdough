@@ -79,6 +79,20 @@
           <button id="hyd-reset" class="step-btn ghost" title="Reset to blend default" aria-label="Reset hydration">↺</button>
         </div>
       </div>
+      <details class="explainer">
+        <summary>How is this calculated?</summary>
+        <p>Hydration is total water ÷ total flour, counting what's inside your
+        starter too — a 100%-hydration starter is half flour, half water.</p>
+        <p>Each flour absorbs a different amount of water, so each gets its own
+        target: all-purpose 67%, bread flour 72%, whole wheat 80%. Whole wheat
+        runs highest because its bran and germ soak up extra water; bread
+        flour's higher protein takes a bit more than all-purpose.</p>
+        <p>The number above is the average of those targets, weighted by how
+        much of each flour ends up in the dough — the flours you add plus the
+        starter's own flour. Shift the blend toward whole wheat and it rises;
+        toward all-purpose and it falls. The − / + buttons nudge it from
+        there, and ↺ returns to the blend's default.</p>
+      </details>
     </section>
 
     <section aria-labelledby="recipe-label">
@@ -108,9 +122,6 @@
       <p id="storage-note" class="field-note" hidden>Storage is unavailable in this browser — recipes can't be saved.</p>
     </section>
 
-    <footer class="page-footer">
-      <span class="field-note">Loaf Calc v1</span>
-    </footer>
   </main>
 
   <div id="toast" class="toast" hidden></div>

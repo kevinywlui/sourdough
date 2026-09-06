@@ -112,7 +112,6 @@ main {
   main > section:nth-of-type(2) { grid-column: 1; }
   main > section:nth-of-type(3) { grid-column: 1; }
   main > section:nth-of-type(5) { grid-column: 1 / -1; }
-  .page-footer { grid-column: 1 / -1; }
 }
 
 .section-label {
@@ -330,12 +329,19 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 10px; background: #B3403A; color: #fff; font-weight: 600;
 }
 
-/* ---------- Footer / toast ---------- */
-.page-footer {
-  display: flex; align-items: center; justify-content: flex-end;
-  padding-top: var(--s4); border-top: 1px solid var(--border);
+/* ---------- Explainer ---------- */
+.explainer { margin-top: var(--s3); }
+.explainer summary {
+  font-size: 0.875rem; font-weight: 600; color: var(--accent);
+  cursor: pointer; min-height: 44px; display: flex; align-items: center;
+  -webkit-user-select: none; user-select: none;
+}
+.explainer p {
+  font-size: 0.875rem; color: var(--text-muted);
+  margin-bottom: var(--s3); max-width: 60ch;
 }
 
+/* ---------- Toast ---------- */
 .toast {
   position: fixed; left: 50%; bottom: calc(var(--s5) + env(safe-area-inset-bottom));
   transform: translateX(-50%);
