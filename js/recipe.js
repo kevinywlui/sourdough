@@ -58,6 +58,22 @@
 
   const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
+  // How much starter to build for a dough target, aiming at a given
+  // inoculation (default 20% of total flour). Inverts solve()'s closed
+  // form: S = p·F with F = (D − (S/2)(hst − Hb)) / K solves to
+  // S = p·D / (K + (p/2)(hst − Hb)). Rounded to 5 g — a build amount.
+  function suggestStarter(params, inoculation) {
+    const p = inoculation || 0.20;
+    const starterFlour = params.starterFlour || DEFAULTS.starterFlour;
+    const hst = FLOURS.find((f) => f.id === starterFlour).hydration;
+    const Hb = blendHydration(params.blend);
+    const s = clamp(params.saltPct, LIMITS.saltPct.min, LIMITS.saltPct.max) / 100;
+    const off = (params.hydrationOffset || 0) / 100;
+    const D = clamp(params.doughG, LIMITS.doughG.min, LIMITS.doughG.max);
+    const S = (p * D) / (1 + Hb + s + off + (p / 2) * (hst - Hb));
+    return clamp(Math.round(S / 5) * 5, LIMITS.starterG.min, LIMITS.starterG.max);
+  }
+
   // Hydration of the ADDED flour blend alone (weighted average).
   function blendHydration(blend) {
     let h = 0;
@@ -167,6 +183,6 @@
 
   return {
     FLOURS, PANS, LIMITS, DEFAULTS, clamp,
-    blendHydration, rebalanceBlend, solve,
+    blendHydration, rebalanceBlend, solve, suggestStarter,
   };
 });

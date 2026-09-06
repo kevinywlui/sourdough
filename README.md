@@ -28,7 +28,9 @@ the flour you **add**; the starter's flour counts toward whichever flour it
 is fed with (AP/WW/bread selector).
 
 You enter BOTH the dough target `D` and the starter `S` you have, so
-inoculation (starter ÷ total flour) is derived, not chosen. With `x = S/2`,
+inoculation (starter ÷ total flour) is derived, not chosen. If you haven't
+built the starter yet, a suggest button inverts the same formula to tell
+you how much to prepare for a 20% inoculation. With `x = S/2`,
 `Hb` = the added blend's weighted hydration, and `hst` = the starter
 flour's hydration, total flour solves in closed form:
 

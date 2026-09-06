@@ -6,7 +6,7 @@
 
 const {
   FLOURS, PANS, DEFAULTS, LIMITS,
-  solve, rebalanceBlend, clamp,
+  solve, rebalanceBlend, suggestStarter, clamp,
 } = LoafRecipe;
 
 const $ = (id) => document.getElementById(id);
@@ -187,6 +187,8 @@ function wireEvents() {
     update({ doughG: clamp(v, LIMITS.doughG.min, LIMITS.doughG.max) }));
   wireNumericInput($('starter-input'), (v) =>
     update({ starterG: clamp(v, LIMITS.starterG.min, LIMITS.starterG.max) }));
+  $('starter-suggest').addEventListener('click', () =>
+    update({ starterG: suggestStarter(state) }));
 
   $('hyd-minus').addEventListener('click', () => update({ hydrationOffset: state.hydrationOffset - 1 }));
   $('hyd-plus').addEventListener('click', () => update({ hydrationOffset: state.hydrationOffset + 1 }));
@@ -255,6 +257,12 @@ function renderInputs(result) {
   $('starter-note').textContent =
     `= ${Math.round(result.totals.inoculation * 100)}% of total flour`;
   $('salt-value').textContent = `${state.saltPct}%`;
+
+  // "How much starter should I prepare?" — hide once they're already there.
+  const suggested = suggestStarter(state);
+  const btn = $('starter-suggest');
+  btn.hidden = Math.round(state.starterG) === suggested;
+  btn.textContent = `Building starter for this loaf? Prepare ${suggested} g`;
 }
 
 function renderChips() {

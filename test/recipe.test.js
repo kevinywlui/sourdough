@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  FLOURS, blendHydration, solve, rebalanceBlend, DEFAULTS,
+  FLOURS, blendHydration, solve, rebalanceBlend, suggestStarter, DEFAULTS,
 } = require('../js/recipe.js');
 
 const params = { ...DEFAULTS };
@@ -54,6 +54,23 @@ test("the user's case: 140 g WW starter, all-bread blend, 900 g target", () => {
   assert.ok(Math.abs(r.totals.inoculation - 0.2724) < 0.001);
   assert.ok(Math.abs(r.totals.hydration - 0.7309) < 0.001);
   assert.equal(r.warnings.length, 0);
+});
+
+test('suggestStarter: applying the suggestion lands near 20% inoculation', () => {
+  for (const p of [
+    params,
+    { ...params, doughG: 750, blend: { bread: 100 }, starterFlour: 'ww' },
+    { ...params, doughG: 1450, blend: { ap: 50, rye: 50 }, starterFlour: 'rye' },
+  ]) {
+    const s = suggestStarter(p);
+    assert.equal(s % 5, 0); // a build amount, rounded to 5 g
+    const r = solve({ ...p, starterG: s });
+    assert.ok(Math.abs(r.totals.inoculation - 0.20) < 0.01);
+  }
+});
+
+test('suggestStarter: default 900 g loaf suggests 105 g', () => {
+  assert.equal(suggestStarter(params), 105);
 });
 
 test('displayed grams always sum exactly to the dough target', () => {
