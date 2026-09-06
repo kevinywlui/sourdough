@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Serve with: python3 -m http.server  (ES modules don't load over file://) -->
+<!-- Plain scripts on purpose: the app must work when opened via file:// -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -26,6 +26,7 @@
         <button id="mode-dough" class="segment" type="button">Pan / dough</button>
         <button id="mode-starter" class="segment" type="button">Starter I have</button>
       </div>
+      <p class="section-hint">Enter the number you know — the rest of the recipe is computed from it.</p>
 
       <div id="pan-row">
         <div id="pan-chips" class="chip-row" aria-label="Pan presets"></div>
@@ -50,6 +51,11 @@
         </label>
       </div>
 
+      <div class="starter-flour-row">
+        <span class="mini-label">Starter fed with</span>
+        <div id="starter-flour-chips" class="chip-row chip-row-tight"></div>
+      </div>
+
       <div class="mini-steppers">
         <div class="mini-stepper" id="starterpct-stepper">
           <span class="mini-label">Starter %<small>of flour</small></span>
@@ -62,9 +68,10 @@
 
     <section aria-labelledby="blend-label">
       <div class="section-head">
-        <h2 id="blend-label" class="section-label">Flour blend</h2>
+        <h2 id="blend-label" class="section-label">Flours you add</h2>
         <div id="blend-presets" class="chip-row chip-row-tight"></div>
       </div>
+      <p class="section-hint">The mix of dry flour you'll weigh out — the starter's own flour is counted on top.</p>
       <div id="blend-rows"></div>
     </section>
 
@@ -99,14 +106,15 @@
 
     <section aria-labelledby="timeline-label">
       <div class="section-head">
-        <h2 id="timeline-label" class="section-label">Timeline</h2>
+        <h2 id="timeline-label" class="section-label">Bake timeline</h2>
         <div class="mini-stepper" id="temp-stepper">
           <span class="mini-label">Room</span>
         </div>
       </div>
-      <button id="bake-start" class="primary-btn">▶ Start bake</button>
+      <p class="section-hint">Estimated schedule for this dough at your room temperature.</p>
       <ol id="stages" class="stages"></ol>
       <div id="timeline-summary" class="timeline-summary"></div>
+      <button id="bake-start" class="primary-btn">▶ Start the clock — I'm mixing now</button>
       <button id="bake-reset" class="link-btn" hidden>Reset timeline</button>
     </section>
 
@@ -135,6 +143,9 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script type="module" src="js/app.js"></script>
+  <script defer src="js/recipe.js"></script>
+  <script defer src="js/timeline.js"></script>
+  <script defer src="js/storage.js"></script>
+  <script defer src="js/ui.js"></script>
 </body>
 </html>

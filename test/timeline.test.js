@@ -1,6 +1,6 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { bulkHours, schedule, formatDuration } from '../js/timeline.js';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { bulkHours, schedule, formatDuration } = require('../js/timeline.js');
 
 test('baseline: 7 h at 22°C with 20% starter', () => {
   assert.ok(Math.abs(bulkHours(22, 20) - 7) < 1e-9);

@@ -188,6 +188,16 @@ main {
 .field-note { display: block; font-size: 0.8125rem; color: var(--text-muted); margin-top: var(--s1); min-height: 1.2em; }
 
 /* ---------- Mini steppers ---------- */
+.section-hint {
+  font-size: 0.875rem; color: var(--text-muted);
+  margin-bottom: var(--s3);
+}
+
+.starter-flour-row {
+  display: flex; align-items: center; gap: var(--s3);
+  margin-top: var(--s4); flex-wrap: wrap;
+}
+
 .mini-steppers { display: flex; gap: var(--s4); margin-top: var(--s4); flex-wrap: wrap; }
 .mini-stepper { display: flex; align-items: center; gap: var(--s2); }
 .mini-label { font-size: 0.875rem; color: var(--text-muted); display: flex; flex-direction: column; line-height: 1.15; }

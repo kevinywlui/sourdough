@@ -2,16 +2,19 @@
 // update(); render() recomputes the recipe and writes every derived output.
 // Inputs the user is typing in are never rewritten while focused.
 
-import {
+(() => {
+'use strict';
+
+const {
   FLOURS, PANS, DEFAULTS, LIMITS,
   solve, deriveHydration, rebalanceBlend, clamp,
-} from './recipe.js';
-import { schedule, formatDuration } from './timeline.js';
-import { load, save, storageAvailable } from './storage.js';
+} = LoafRecipe;
+const { schedule, formatDuration } = LoafTimeline;
+const { load, save, storageAvailable } = LoafStorage;
 
 const $ = (id) => document.getElementById(id);
 
-const RECIPE_INPUT_KEYS = ['mode', 'doughG', 'starterG', 'blend', 'starterPct', 'saltPct', 'hydrationOffset'];
+const RECIPE_INPUT_KEYS = ['mode', 'doughG', 'starterG', 'blend', 'starterFlour', 'starterPct', 'saltPct', 'hydrationOffset'];
 
 const BLEND_PRESETS = [
   { label: 'All AP', blend: { ap: 100, ww: 0, bread: 0 } },
@@ -37,7 +40,7 @@ let draggingSlider = null;
 let saveTimer = null;
 let toastTimer = null;
 
-export function initUI() {
+function initUI() {
   const stored = load();
   if (stored) {
     if (stored.current) state = { ...state, ...stored.current };
@@ -47,6 +50,7 @@ export function initUI() {
   }
 
   buildPanChips();
+  buildStarterFlourChips();
   buildBlendPresets();
   buildBlendRows();
   buildSteppers();
@@ -114,6 +118,19 @@ function buildPanChips() {
     b.textContent = `${pan.label} · ${pan.grams} g`;
     b.dataset.grams = pan.grams;
     b.addEventListener('click', () => update({ mode: 'dough', doughG: pan.grams }));
+    row.appendChild(b);
+  }
+}
+
+function buildStarterFlourChips() {
+  const row = $('starter-flour-chips');
+  for (const flour of FLOURS) {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.type = 'button';
+    b.textContent = flour.short;
+    b.dataset.flour = flour.id;
+    b.addEventListener('click', () => update({ starterFlour: flour.id }));
     row.appendChild(b);
   }
 }
@@ -368,6 +385,9 @@ function renderPanChips() {
     const active = state.mode === 'dough' && Number(chip.dataset.grams) === Math.round(state.doughG);
     chip.setAttribute('aria-pressed', active);
   }
+  for (const chip of $('starter-flour-chips').children) {
+    chip.setAttribute('aria-pressed', chip.dataset.flour === state.starterFlour);
+  }
 }
 
 function renderBlend() {
@@ -387,7 +407,8 @@ function renderBlend() {
 
 function renderHydration() {
   const h = clamp(
-    deriveHydration(state.blend) + state.hydrationOffset / 100,
+    deriveHydration(state.blend, state.starterPct, state.starterFlour) +
+      state.hydrationOffset / 100,
     LIMITS.hydration.min, LIMITS.hydration.max,
   );
   const el = $('hyd-value');
@@ -678,3 +699,6 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 2500);
 }
+
+initUI();
+})();
