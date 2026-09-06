@@ -31,7 +31,6 @@ let state = {
   prefs: { theme: 'auto', large: false },
 };
 
-let wakeLock = null;
 let draggingSlider = null;
 let saveTimer = null;
 let toastTimer = null;
@@ -56,9 +55,6 @@ function initUI() {
   if (!storageAvailable()) {
     $('storage-note').hidden = false;
     $('save-open').disabled = true;
-  }
-  if ('wakeLock' in navigator) {
-    $('wake-row').hidden = false;
   }
 
   // Sticky gram summary once the recipe card scrolls off the TOP of the
@@ -225,10 +221,6 @@ function wireEvents() {
     state.prefs.large = !state.prefs.large;
     applyPrefs();
     persist();
-  });
-  $('wake-toggle').addEventListener('change', (e) => setWakeLock(e.target.checked));
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && $('wake-toggle').checked) setWakeLock(true);
   });
 }
 
@@ -463,7 +455,7 @@ function renderSaved() {
   }
 }
 
-/* ---------- prefs, wake lock, toast ---------- */
+/* ---------- prefs and toast ---------- */
 
 function applyPrefs() {
   const root = document.documentElement;
@@ -480,29 +472,6 @@ function cycleTheme() {
   state.prefs.theme = order[(order.indexOf(state.prefs.theme) + 1) % order.length];
   applyPrefs();
   persist();
-}
-
-async function setWakeLock(on) {
-  try {
-    if (on) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => {
-        wakeLock = null;
-        // Released while the page is visible = the OS took it (low battery,
-        // policy) — reflect reality instead of showing a checked box that
-        // no longer keeps the screen on. Hidden-tab releases are expected
-        // and re-acquired by the visibilitychange handler.
-        if (document.visibilityState === 'visible') {
-          $('wake-toggle').checked = false;
-        }
-      });
-    } else if (wakeLock) {
-      await wakeLock.release();
-      wakeLock = null;
-    }
-  } catch {
-    $('wake-toggle').checked = false;
-  }
 }
 
 function toast(msg) {

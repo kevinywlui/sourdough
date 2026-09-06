@@ -339,11 +339,9 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---------- Footer / toast ---------- */
 .page-footer {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: flex-end;
   padding-top: var(--s4); border-top: 1px solid var(--border);
 }
-.wake-row { display: flex; align-items: center; gap: var(--s2); min-height: 44px; font-size: 0.9375rem; }
-.wake-row input { width: 20px; height: 20px; accent-color: var(--accent); }
 
 .toast {
   position: fixed; left: 50%; bottom: calc(var(--s5) + env(safe-area-inset-bottom));
