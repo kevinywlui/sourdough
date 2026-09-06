@@ -27,8 +27,7 @@
     { id: 'bread', label: 'Bread flour', short: 'Bread', hydration: 0.72 },
   ];
 
-  // Target dough weight ≈ 0.43 g per mL of pan volume, rounded to 50 g.
-  const PAN_FACTOR = 0.43;
+  // Preset dough weights ≈ 0.43 g per mL of pan volume, rounded to 50 g.
   const PANS = [
     { id: 'loaf85', label: '8.5×4.5″', grams: 750 },
     { id: 'loaf9', label: '9×5″', grams: 900 },
@@ -56,10 +55,6 @@
   };
 
   const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
-
-  function panPreset(volumeMl) {
-    return Math.round((PAN_FACTOR * volumeMl) / 50) * 50;
-  }
 
   // Hydration of the ADDED flour blend alone (weighted average).
   function blendHydration(blend) {
@@ -168,7 +163,7 @@
   }
 
   return {
-    FLOURS, PAN_FACTOR, PANS, LIMITS, DEFAULTS, clamp, panPreset,
+    FLOURS, PANS, LIMITS, DEFAULTS, clamp,
     blendHydration, rebalanceBlend, solve,
   };
 });

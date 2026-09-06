@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  blendHydration, solve, rebalanceBlend, panPreset, DEFAULTS,
+  blendHydration, solve, rebalanceBlend, DEFAULTS,
 } = require('../js/recipe.js');
 
 const params = { ...DEFAULTS };
@@ -130,9 +130,4 @@ test('rebalanceBlend recovers from a zeroed row', () => {
   const b = rebalanceBlend({ ap: 100, ww: 0, bread: 0 }, 'ap', 60);
   assert.equal(b.ap + b.ww + b.bread, 100);
   assert.equal(b.ap, 60);
-});
-
-test('panPreset: volume heuristic rounds to 50 g', () => {
-  assert.equal(panPreset(2400), 1050);
-  assert.equal(panPreset(2000), 850);
 });

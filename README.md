@@ -48,6 +48,6 @@ The JS modules are UMD-style: plain `<script>` tags in the browser (so
 `file://` works — no bundler, no modules), `require()` in the tests.
 
 - `js/recipe.js` — pure recipe math (solving, blend rebalancing, pan presets)
-- `js/storage.js` — versioned localStorage wrapper (degrades if blocked)
-- `js/ui.js` — all DOM code: single state object, full re-render on change
-- `test/` — `node:test` suites for the math modules
+- `js/ui.js` — all DOM code plus a small localStorage wrapper: single state
+  object, full re-render on change
+- `test/` — `node:test` suite for the math module

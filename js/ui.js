@@ -8,9 +8,37 @@ const {
   FLOURS, PANS, DEFAULTS, LIMITS,
   solve, rebalanceBlend, clamp,
 } = LoafRecipe;
-const { load, save, storageAvailable } = LoafStorage;
 
 const $ = (id) => document.getElementById(id);
+
+/* ---------- storage (all access try/caught: private mode, quota) ---------- */
+
+const STORAGE_KEY = 'sourdough.v1';
+
+function loadStored() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return raw && raw.version === 1 ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStored(data) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, ...data }));
+  } catch { /* degrade to in-memory */ }
+}
+
+function storageAvailable() {
+  try {
+    localStorage.setItem('__sd_test', '1');
+    localStorage.removeItem('__sd_test');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const RECIPE_INPUT_KEYS = ['doughG', 'starterG', 'blend', 'starterFlour', 'saltPct', 'hydrationOffset'];
 
@@ -26,9 +54,8 @@ let state = {
   lockedFlour: null,
   view: 'g',
   saved: [],
-  loadedId: null,
   confirmDeleteId: null,
-  prefs: { theme: 'auto' },
+  theme: 'auto',
 };
 
 let draggingSlider = null;
@@ -36,20 +63,25 @@ let saveTimer = null;
 let toastTimer = null;
 
 function initUI() {
-  const stored = load();
+  const stored = loadStored();
   if (stored) {
     if (stored.current) state = { ...state, ...stored.current };
     if (Array.isArray(stored.saved)) state.saved = stored.saved;
-    if (stored.prefs) state.prefs = { ...state.prefs, ...stored.prefs };
+    state.theme = stored.theme || stored.prefs?.theme || 'auto';
   }
 
-  buildPanChips();
-  buildStarterFlourChips();
-  buildBlendPresets();
+  buildChips($('pan-chips'), PANS,
+    (p) => `${p.label} · ${p.grams} g`,
+    (p) => update({ doughG: p.grams }));
+  buildChips($('starter-flour-chips'), FLOURS,
+    (f) => f.short,
+    (f) => update({ starterFlour: f.id }));
+  buildChips($('blend-presets'), BLEND_PRESETS,
+    (p) => p.label,
+    (p) => update({ blend: { ...p.blend }, lockedFlour: null }));
   buildBlendRows();
-  buildSteppers();
   wireEvents();
-  applyPrefs();
+  applyTheme();
   render();
 
   if (!storageAvailable()) {
@@ -74,52 +106,24 @@ function update(patch) {
 function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const { saved, prefs } = state;
     const current = {};
-    for (const k of [...RECIPE_INPUT_KEYS, 'lockedFlour', 'view', 'loadedId']) {
+    for (const k of [...RECIPE_INPUT_KEYS, 'lockedFlour', 'view']) {
       current[k] = state[k];
     }
-    save({ current, saved, prefs });
+    saveStored({ current, saved: state.saved, theme: state.theme });
   }, 200);
 }
 
 /* ---------- dynamic DOM construction ---------- */
 
-function buildPanChips() {
-  const row = $('pan-chips');
-  for (const pan of PANS) {
+function buildChips(container, items, makeLabel, onPick) {
+  for (const item of items) {
     const b = document.createElement('button');
     b.className = 'chip';
     b.type = 'button';
-    b.textContent = `${pan.label} · ${pan.grams} g`;
-    b.dataset.grams = pan.grams;
-    b.addEventListener('click', () => update({ doughG: pan.grams }));
-    row.appendChild(b);
-  }
-}
-
-function buildStarterFlourChips() {
-  const row = $('starter-flour-chips');
-  for (const flour of FLOURS) {
-    const b = document.createElement('button');
-    b.className = 'chip';
-    b.type = 'button';
-    b.textContent = flour.short;
-    b.dataset.flour = flour.id;
-    b.addEventListener('click', () => update({ starterFlour: flour.id }));
-    row.appendChild(b);
-  }
-}
-
-function buildBlendPresets() {
-  const row = $('blend-presets');
-  for (const preset of BLEND_PRESETS) {
-    const b = document.createElement('button');
-    b.className = 'chip';
-    b.type = 'button';
-    b.textContent = preset.label;
-    b.addEventListener('click', () => update({ blend: { ...preset.blend }, lockedFlour: null }));
-    row.appendChild(b);
+    b.textContent = makeLabel(item);
+    b.addEventListener('click', () => onPick(item));
+    container.appendChild(b);
   }
 }
 
@@ -162,37 +166,17 @@ function setBlend(key, value) {
   update({ blend: rebalanceBlend(state.blend, key, value, state.lockedFlour) });
 }
 
-function buildSteppers() {
-  makeStepper($('saltpct-stepper'), {
-    get: () => state.saltPct,
-    set: (v) => update({ saltPct: clamp(Math.round(v * 4) / 4, LIMITS.saltPct.min, LIMITS.saltPct.max) }),
-    step: 0.25,
-    fmt: (v) => `${v}%`,
-  });
-}
-
-const stepperRenderers = [];
-function makeStepper(container, { get, set, step, fmt }) {
-  const minus = document.createElement('button');
-  minus.className = 'step-btn'; minus.type = 'button'; minus.textContent = '−';
-  const value = document.createElement('span');
-  value.className = 'stepper-value';
-  const plus = document.createElement('button');
-  plus.className = 'step-btn'; plus.type = 'button'; plus.textContent = '+';
-  minus.addEventListener('click', () => set(get() - step));
-  plus.addEventListener('click', () => set(get() + step));
-  const group = document.createElement('div');
-  group.className = 'stepper-group';
-  group.append(minus, value, plus);
-  container.appendChild(group);
-  stepperRenderers.push(() => { value.textContent = fmt(get()); });
-}
-
 /* ---------- events ---------- */
 
 function wireEvents() {
   window.addEventListener('pointerup', endSliderDrag);
   window.addEventListener('pointercancel', endSliderDrag);
+
+  const saltStep = (d) => update({
+    saltPct: clamp(Math.round((state.saltPct + d) * 4) / 4, LIMITS.saltPct.min, LIMITS.saltPct.max),
+  });
+  $('salt-minus').addEventListener('click', () => saltStep(-0.25));
+  $('salt-plus').addEventListener('click', () => saltStep(0.25));
 
   wireNumericInput($('dough-input'), (v) =>
     update({ doughG: clamp(v, LIMITS.doughG.min, LIMITS.doughG.max) }));
@@ -254,7 +238,6 @@ function render() {
   renderRecipe(result);
   renderStickyBar(result);
   renderSaved();
-  stepperRenderers.forEach((fn) => fn());
 }
 
 function setInputValue(input, value) {
@@ -266,15 +249,14 @@ function renderInputs(result) {
   setInputValue($('starter-input'), Math.round(state.starterG));
   $('starter-note').textContent =
     `= ${Math.round(result.totals.inoculation * 100)}% of total flour`;
+  $('salt-value').textContent = `${state.saltPct}%`;
 }
 
 function renderChips() {
-  for (const chip of $('pan-chips').children) {
-    chip.setAttribute('aria-pressed', Number(chip.dataset.grams) === Math.round(state.doughG));
-  }
-  for (const chip of $('starter-flour-chips').children) {
-    chip.setAttribute('aria-pressed', chip.dataset.flour === state.starterFlour);
-  }
+  [...$('pan-chips').children].forEach((chip, i) =>
+    chip.setAttribute('aria-pressed', PANS[i].grams === Math.round(state.doughG)));
+  [...$('starter-flour-chips').children].forEach((chip, i) =>
+    chip.setAttribute('aria-pressed', FLOURS[i].id === state.starterFlour));
 }
 
 function renderBlend() {
@@ -440,7 +422,7 @@ function renderSaved() {
       for (const k of RECIPE_INPUT_KEYS) {
         if (recipe.inputs[k] !== undefined) inputs[k] = recipe.inputs[k];
       }
-      update({ ...inputs, loadedId: recipe.id });
+      update(inputs);
       toast(`Loaded “${recipe.name}”`);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
@@ -450,20 +432,20 @@ function renderSaved() {
   }
 }
 
-/* ---------- prefs and toast ---------- */
+/* ---------- theme and toast ---------- */
 
-function applyPrefs() {
+function applyTheme() {
   const root = document.documentElement;
-  if (state.prefs.theme === 'auto') root.removeAttribute('data-theme');
-  else root.setAttribute('data-theme', state.prefs.theme);
-  $('theme-toggle').title = `Theme: ${state.prefs.theme}`;
-  $('theme-toggle').textContent = { auto: '◐', light: '☀', dark: '☾' }[state.prefs.theme];
+  if (state.theme === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', state.theme);
+  $('theme-toggle').title = `Theme: ${state.theme}`;
+  $('theme-toggle').textContent = { auto: '◐', light: '☀', dark: '☾' }[state.theme];
 }
 
 function cycleTheme() {
   const order = ['auto', 'light', 'dark'];
-  state.prefs.theme = order[(order.indexOf(state.prefs.theme) + 1) % order.length];
-  applyPrefs();
+  state.theme = order[(order.indexOf(state.theme) + 1) % order.length];
+  applyTheme();
   persist();
 }
 

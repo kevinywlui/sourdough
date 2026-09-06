@@ -128,15 +128,14 @@ main {
 }
 .section-head .section-label { margin-bottom: 0; }
 
-/* ---------- Segmented control ---------- */
+/* ---------- Segmented control (g/% toggle) ---------- */
 .segmented {
-  display: flex; width: 100%;
+  display: flex;
   background: var(--surface-2);
   border-radius: 12px; padding: 3px;
-  margin-bottom: var(--s4);
 }
 .segment {
-  flex: 1; min-height: 42px;
+  flex: 1; min-height: 34px; min-width: 44px; padding: 0 var(--s3);
   border-radius: 9px; font-size: 1rem; font-weight: 500;
   color: var(--text-muted);
 }
@@ -145,8 +144,6 @@ main {
   color: var(--text); font-weight: 600;
   box-shadow: var(--card-shadow);
 }
-.segmented-small { width: auto; margin-bottom: 0; }
-.segmented-small .segment { min-height: 34px; min-width: 44px; padding: 0 var(--s3); }
 
 /* ---------- Chips ---------- */
 .chip-row { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s4); }
@@ -193,10 +190,8 @@ main {
   margin-top: var(--s4); flex-wrap: wrap;
 }
 
-.mini-steppers { display: flex; gap: var(--s4); margin-top: var(--s4); flex-wrap: wrap; }
-.mini-stepper { display: flex; align-items: center; gap: var(--s2); }
-.mini-label { font-size: 0.875rem; color: var(--text-muted); display: flex; flex-direction: column; line-height: 1.15; }
-.mini-label small { font-size: 0.6875rem; }
+.mini-stepper { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s4); }
+.mini-label { font-size: 0.875rem; color: var(--text-muted); }
 .stepper-group { display: flex; align-items: center; gap: var(--s1); }
 .step-btn {
   min-width: 44px; min-height: 44px;

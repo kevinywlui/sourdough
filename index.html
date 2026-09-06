@@ -23,9 +23,7 @@
       <h2 id="solve-label" class="section-label">Your loaf</h2>
       <p class="section-hint">Set the dough target for your pan and the starter you have — flour, water, and salt are computed.</p>
 
-      <div id="pan-row">
-        <div id="pan-chips" class="chip-row" aria-label="Pan presets"></div>
-      </div>
+      <div id="pan-chips" class="chip-row" aria-label="Pan presets"></div>
 
       <div class="field-grid">
         <label class="field" id="dough-field">
@@ -34,7 +32,6 @@
             <input id="dough-input" type="text" inputmode="numeric" autocomplete="off">
             <span class="unit">g</span>
           </span>
-          <span class="field-note"></span>
         </label>
         <label class="field" id="starter-field">
           <span class="field-label">Starter you have</span>
@@ -51,9 +48,12 @@
         <div id="starter-flour-chips" class="chip-row chip-row-tight"></div>
       </div>
 
-      <div class="mini-steppers">
-        <div class="mini-stepper" id="saltpct-stepper">
-          <span class="mini-label">Salt %</span>
+      <div class="mini-stepper">
+        <span class="mini-label">Salt %</span>
+        <div class="stepper-group">
+          <button id="salt-minus" class="step-btn" type="button" aria-label="Less salt">−</button>
+          <span id="salt-value" class="stepper-value"></span>
+          <button id="salt-plus" class="step-btn" type="button" aria-label="More salt">+</button>
         </div>
       </div>
     </section>
@@ -84,7 +84,7 @@
     <section aria-labelledby="recipe-label">
       <div class="section-head">
         <h2 id="recipe-label" class="section-label">Recipe</h2>
-        <div class="segmented segmented-small">
+        <div class="segmented">
           <button id="view-g" class="segment" type="button">g</button>
           <button id="view-pct" class="segment" type="button">%</button>
         </div>
@@ -98,14 +98,12 @@
 
     <section aria-labelledby="saved-label">
       <h2 id="saved-label" class="section-label">Saved recipes</h2>
-      <div id="save-area">
-        <button id="save-open" class="secondary-btn">Save current…</button>
-        <form id="save-form" class="save-form" hidden>
-          <input id="save-name" type="text" autocomplete="off" placeholder="Recipe name">
-          <button type="submit" class="secondary-btn">Save</button>
-          <button type="button" id="save-cancel" class="link-btn">Cancel</button>
-        </form>
-      </div>
+      <button id="save-open" class="secondary-btn">Save current…</button>
+      <form id="save-form" class="save-form" hidden>
+        <input id="save-name" type="text" autocomplete="off" placeholder="Recipe name">
+        <button type="submit" class="secondary-btn">Save</button>
+        <button type="button" id="save-cancel" class="link-btn">Cancel</button>
+      </form>
       <ul id="saved-list" class="saved-list"></ul>
       <p id="storage-note" class="field-note" hidden>Storage is unavailable in this browser — recipes can't be saved.</p>
     </section>
@@ -118,7 +116,6 @@
   <div id="toast" class="toast" hidden></div>
 
   <script defer src="js/recipe.js"></script>
-  <script defer src="js/storage.js"></script>
   <script defer src="js/ui.js"></script>
 </body>
 </html>
