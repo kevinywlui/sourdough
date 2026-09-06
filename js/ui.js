@@ -28,10 +28,12 @@ let state = {
   bake: null, // { startedAt: ms, done: { stageId: ms } }
   saved: [],
   loadedId: null,
+  confirmDeleteId: null,
   prefs: { theme: 'auto', large: false },
 };
 
 let wakeLock = null;
+let draggingSlider = null;
 let saveTimer = null;
 let toastTimer = null;
 
@@ -60,16 +62,26 @@ export function initUI() {
     $('wake-row').hidden = false;
   }
 
-  // Sticky gram summary once the recipe card scrolls off-screen.
-  const observer = new IntersectionObserver(([entry]) => {
-    $('sticky-bar').hidden = entry.isIntersecting;
-  }, { rootMargin: '-56px 0px 0px 0px' });
-  observer.observe($('recipe-card'));
+  // Sticky gram summary once the recipe card scrolls off the TOP of the
+  // viewport. A scroll listener, not an IntersectionObserver: a fast jump
+  // can skip every intersecting frame and the observer never fires.
+  window.addEventListener('scroll', updateStickyBar, { passive: true });
+  window.addEventListener('resize', updateStickyBar, { passive: true });
+  updateStickyBar();
+
+  // Clock times and the current-stage highlight drift without a re-render.
+  setInterval(renderTimeline, 60_000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') renderTimeline();
+  });
 }
 
 function update(patch, { resetChecks } = {}) {
+  // Only a patch that actually CHANGES a recipe input invalidates the
+  // checklist — tapping the already-active mode/chip/preset must not.
   const touchedRecipe = resetChecks !== false &&
-    Object.keys(patch).some((k) => RECIPE_INPUT_KEYS.includes(k));
+    Object.keys(patch).some((k) => RECIPE_INPUT_KEYS.includes(k) &&
+      JSON.stringify(patch[k]) !== JSON.stringify(state[k]));
   state = { ...state, ...patch };
   if (touchedRecipe && Object.keys(state.checked).length > 0) {
     state.checked = {};
@@ -136,6 +148,9 @@ function buildBlendRows() {
       <input class="blend-slider" type="range" min="0" max="100" step="1" aria-label="${flour.label} percent">
     `;
     const slider = row.querySelector('.blend-slider');
+    // Track drags with pointer events: on touch, range inputs never become
+    // document.activeElement, so a focus check can't protect a live drag.
+    slider.addEventListener('pointerdown', () => { draggingSlider = slider; });
     slider.addEventListener('input', () => setBlend(flour.id, Number(slider.value)));
     row.querySelectorAll('[data-step]').forEach((btn) => {
       btn.addEventListener('click', () =>
@@ -195,6 +210,9 @@ function makeStepper(container, { get, set, step, fmt }) {
 /* ---------- events ---------- */
 
 function wireEvents() {
+  window.addEventListener('pointerup', endSliderDrag);
+  window.addEventListener('pointercancel', endSliderDrag);
+
   $('mode-dough').addEventListener('click', () => update({ mode: 'dough' }));
   $('mode-starter').addEventListener('click', () => update({ mode: 'starter' }));
 
@@ -204,12 +222,24 @@ function wireEvents() {
   wireNumericInput($('starter-input'), (v) => {
     if (state.mode === 'starter') update({ starterG: clamp(v, LIMITS.starterG.min, LIMITS.starterG.max) });
   });
-  // Tapping the computed field switches to that mode.
+  // Tapping the computed field switches to that mode. The tap focuses the
+  // input before render runs, so force-sync the values before refocusing —
+  // otherwise the field keeps showing the stale computed number.
   $('dough-field').addEventListener('click', () => {
-    if (state.mode !== 'dough') { update({ mode: 'dough' }); $('dough-input').focus(); }
+    if (state.mode !== 'dough') {
+      update({ mode: 'dough' });
+      syncNumericInputs();
+      $('dough-input').focus();
+      $('dough-input').select();
+    }
   });
   $('starter-field').addEventListener('click', () => {
-    if (state.mode !== 'starter') { update({ mode: 'starter' }); $('starter-input').focus(); }
+    if (state.mode !== 'starter') {
+      update({ mode: 'starter' });
+      syncNumericInputs();
+      $('starter-input').focus();
+      $('starter-input').select();
+    }
   });
 
   $('hyd-minus').addEventListener('click', () => update({ hydrationOffset: state.hydrationOffset - 1 }));
@@ -253,8 +283,29 @@ function wireNumericInput(input, onValue) {
   input.addEventListener('change', () => {
     const v = parseFloat(input.value.replace(',', '.'));
     if (Number.isFinite(v)) onValue(v);
-    else render(); // restore last good value
+    // 'change' fires while the input is still focused, so render()'s focus
+    // guard would leave a clamped or invalid value on screen — force-sync.
+    syncNumericInputs();
   });
+}
+
+function endSliderDrag() {
+  if (draggingSlider) {
+    draggingSlider = null;
+    render(); // final sync in case the last drag position was clamped
+  }
+}
+
+// Write the canonical values into both numeric fields, focus or not.
+function syncNumericInputs() {
+  const result = solve(state);
+  if (state.mode === 'dough') {
+    $('dough-input').value = Math.round(state.doughG);
+    $('starter-input').value = result.weigh.starter;
+  } else {
+    $('starter-input').value = Math.round(state.starterG);
+    $('dough-input').value = result.weigh.total;
+  }
 }
 
 /* ---------- render ---------- */
@@ -278,22 +329,24 @@ function setInputValue(input, value) {
 
 function renderMode() {
   const doughMode = state.mode === 'dough';
-  $('mode-dough').setAttribute('aria-selected', doughMode);
-  $('mode-starter').setAttribute('aria-selected', !doughMode);
+  $('mode-dough').setAttribute('aria-pressed', doughMode);
+  $('mode-starter').setAttribute('aria-pressed', !doughMode);
   $('dough-field').classList.toggle('computed', !doughMode);
   $('starter-field').classList.toggle('computed', doughMode);
   $('dough-input').readOnly = !doughMode;
   $('starter-input').readOnly = doughMode;
 
+  // The computed (read-only) field is written unconditionally — the user
+  // can't be typing in it, but a tap can leave it focused.
   const result = solve(state);
   if (doughMode) {
     setInputValue($('dough-input'), Math.round(state.doughG));
-    setInputValue($('starter-input'), result.weigh.starter);
+    $('starter-input').value = result.weigh.starter;
     $('dough-note').textContent = '';
     $('starter-note').textContent = 'computed';
   } else {
     setInputValue($('starter-input'), Math.round(state.starterG));
-    setInputValue($('dough-input'), result.weigh.total);
+    $('dough-input').value = result.weigh.total;
     $('starter-note').textContent = '';
     const fit = bestFitPan(result.weigh.total);
     $('dough-note').textContent = fit ? `computed · ≈ fills a ${fit.label} pan` : 'computed';
@@ -323,7 +376,7 @@ function renderBlend() {
     const pct = state.blend[id];
     row.querySelector('[data-pct]').textContent = `${pct}%`;
     const slider = row.querySelector('.blend-slider');
-    if (document.activeElement !== slider) slider.value = pct;
+    if (draggingSlider !== slider) slider.value = pct;
     slider.style.setProperty('--fill', `${pct}%`);
     const lock = row.querySelector('.lock-btn');
     const locked = state.lockedFlour === id;
@@ -353,8 +406,8 @@ const ING_ROWS = [
 ];
 
 function renderRecipe(result) {
-  $('view-g').setAttribute('aria-selected', state.view === 'g');
-  $('view-pct').setAttribute('aria-selected', state.view === 'pct');
+  $('view-g').setAttribute('aria-pressed', state.view === 'g');
+  $('view-pct').setAttribute('aria-pressed', state.view === 'pct');
 
   const list = $('recipe-rows');
   list.textContent = '';
@@ -397,6 +450,13 @@ function renderStickyBar(result) {
   const flours = [ap, ww, bread].filter((g) => g > 0).join('+');
   $('sticky-bar').textContent =
     `${flours} flour · ${water} water · ${salt} salt · ${starter} starter`;
+  updateStickyBar();
+}
+
+function updateStickyBar() {
+  // Show only after the recipe card has scrolled up under the header.
+  const cardBottom = $('recipe-card').getBoundingClientRect().bottom;
+  $('sticky-bar').hidden = cardBottom > 56;
 }
 
 function renderTimeline() {
@@ -512,6 +572,31 @@ function renderSaved() {
   for (const recipe of state.saved) {
     const li = document.createElement('li');
     li.className = 'saved-row';
+
+    // The confirm prompt lives in state so an unrelated render (a stepper
+    // tap, the timeline refresh) rebuilds it instead of dismissing it.
+    if (state.confirmDeleteId === recipe.id) {
+      const wrap = document.createElement('div');
+      wrap.className = 'saved-confirm';
+      const label = document.createElement('span');
+      label.textContent = `Delete “${recipe.name}”?`;
+      const del = document.createElement('button');
+      del.className = 'danger-btn'; del.type = 'button'; del.textContent = 'Delete';
+      del.addEventListener('click', () => {
+        update({
+          saved: state.saved.filter((r) => r.id !== recipe.id),
+          confirmDeleteId: null,
+        }, { resetChecks: false });
+      });
+      const cancel = document.createElement('button');
+      cancel.className = 'link-btn'; cancel.type = 'button'; cancel.textContent = 'Cancel';
+      cancel.addEventListener('click', () => update({ confirmDeleteId: null }, { resetChecks: false }));
+      wrap.append(label, del, cancel);
+      li.appendChild(wrap);
+      list.appendChild(li);
+      continue;
+    }
+
     const blend = recipe.inputs.blend || {};
     const summary = FLOURS
       .filter((f) => blend[f.id] > 0)
@@ -530,27 +615,10 @@ function renderSaved() {
       toast(`Loaded “${recipe.name}”`);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
-    li.querySelector('.saved-del').addEventListener('click', () => confirmDelete(li, recipe));
+    li.querySelector('.saved-del').addEventListener('click', () =>
+      update({ confirmDeleteId: recipe.id }, { resetChecks: false }));
     list.appendChild(li);
   }
-}
-
-function confirmDelete(row, recipe) {
-  row.textContent = '';
-  const wrap = document.createElement('div');
-  wrap.className = 'saved-confirm';
-  const label = document.createElement('span');
-  label.textContent = `Delete “${recipe.name}”?`;
-  const del = document.createElement('button');
-  del.className = 'danger-btn'; del.type = 'button'; del.textContent = 'Delete';
-  del.addEventListener('click', () => {
-    update({ saved: state.saved.filter((r) => r.id !== recipe.id) }, { resetChecks: false });
-  });
-  const cancel = document.createElement('button');
-  cancel.className = 'link-btn'; cancel.type = 'button'; cancel.textContent = 'Cancel';
-  cancel.addEventListener('click', () => render());
-  wrap.append(label, del, cancel);
-  row.appendChild(wrap);
 }
 
 /* ---------- prefs, wake lock, toast ---------- */
@@ -576,6 +644,16 @@ async function setWakeLock(on) {
   try {
     if (on) {
       wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => {
+        wakeLock = null;
+        // Released while the page is visible = the OS took it (low battery,
+        // policy) — reflect reality instead of showing a checked box that
+        // no longer keeps the screen on. Hidden-tab releases are expected
+        // and re-acquired by the visibilitychange handler.
+        if (document.visibilityState === 'visible') {
+          $('wake-toggle').checked = false;
+        }
+      });
     } else if (wakeLock) {
       await wakeLock.release();
       wakeLock = null;
