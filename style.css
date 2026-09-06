@@ -182,8 +182,6 @@ main {
 }
 .field-input input:focus { outline: none; }
 .field-input .unit { color: var(--text-muted); font-size: 1rem; }
-.field.computed .field-input { background: var(--surface-2); border-style: dashed; }
-.field.computed input { color: var(--text-muted); font-weight: 600; }
 .field-note { display: block; font-size: 0.8125rem; color: var(--text-muted); margin-top: var(--s1); min-height: 1.2em; }
 
 /* ---------- Mini steppers ---------- */
@@ -288,16 +286,7 @@ input[type="range"]::-moz-range-thumb {
   display: flex; align-items: center; gap: var(--s3);
   min-height: 56px; padding: 0 var(--s4);
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  -webkit-user-select: none; user-select: none;
 }
-.recipe-row .check {
-  width: 22px; height: 22px; flex: none;
-  border: 2px solid var(--text-muted); border-radius: 7px;
-  display: grid; place-items: center;
-  font-size: 0.875rem; color: var(--accent-contrast);
-}
-.recipe-row.checked .check { background: var(--success); border-color: var(--success); }
 .recipe-row .ing-name { flex: 1; font-size: 1.0625rem; }
 .recipe-row .ing-amount {
   font-size: 1.75rem; font-weight: 700;
@@ -305,13 +294,6 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.1;
 }
 .recipe-row .ing-amount .unit { font-size: 1rem; font-weight: 500; color: var(--text-muted); }
-.recipe-row.checked .ing-name { opacity: 0.45; text-decoration: line-through; }
-.recipe-row.checked .ing-amount { opacity: 0.45; }
-.recipe-row.pulse .ing-amount { animation: pulse 0.4s ease-out; }
-@keyframes pulse {
-  0% { background: var(--surface-2); border-radius: 6px; }
-  100% { background: transparent; }
-}
 .recipe-total {
   padding: var(--s3) var(--s4);
   font-size: 0.875rem; color: var(--text-muted);

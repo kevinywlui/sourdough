@@ -21,12 +21,8 @@
 
   <main>
     <section aria-labelledby="solve-label">
-      <h2 id="solve-label" class="section-label">Solve from</h2>
-      <div class="segmented">
-        <button id="mode-dough" class="segment" type="button">Pan / dough</button>
-        <button id="mode-starter" class="segment" type="button">Starter I have</button>
-      </div>
-      <p class="section-hint">Enter the number you know — the rest of the recipe is computed from it.</p>
+      <h2 id="solve-label" class="section-label">Your loaf</h2>
+      <p class="section-hint">Set the dough target for your pan and the starter you have — flour, water, and salt are computed.</p>
 
       <div id="pan-row">
         <div id="pan-chips" class="chip-row" aria-label="Pan presets"></div>
@@ -39,10 +35,10 @@
             <input id="dough-input" type="text" inputmode="numeric" autocomplete="off">
             <span class="unit">g</span>
           </span>
-          <span class="field-note" id="dough-note"></span>
+          <span class="field-note"></span>
         </label>
         <label class="field" id="starter-field">
-          <span class="field-label">Starter</span>
+          <span class="field-label">Starter you have</span>
           <span class="field-input">
             <input id="starter-input" type="text" inputmode="numeric" autocomplete="off">
             <span class="unit">g</span>
@@ -57,9 +53,6 @@
       </div>
 
       <div class="mini-steppers">
-        <div class="mini-stepper" id="starterpct-stepper">
-          <span class="mini-label">Starter %<small>of flour</small></span>
-        </div>
         <div class="mini-stepper" id="saltpct-stepper">
           <span class="mini-label">Salt %</span>
         </div>

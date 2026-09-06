@@ -5,6 +5,15 @@
 // the starter. Starter is 100% hydration, so it contributes S/2 flour and S/2
 // water. The BLEND describes only the flour you ADD; the starter's flour
 // counts toward whichever flour it is fed with (starterFlour).
+//
+// Both dough target D and starter S are user inputs, so inoculation
+// (starter as % of total flour) is DERIVED, not chosen. With x = S/2,
+// Hb = blend-weighted hydration of the added flour, hst = the starter
+// flour's hydration, and off = the user's hydration nudge:
+//   W = Hb·(F − x) + hst·x + off·F        (water, incl. starter's)
+//   D = F + W + s·F
+// which solves in closed form:
+//   F = (D − x·(hst − Hb)) / (1 + Hb + s + off)
 (function (global, factory) {
   const api = factory();
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -31,18 +40,17 @@
   const LIMITS = {
     starterG: { min: 10, max: 1000 },
     doughG: { min: 200, max: 2500 },
-    starterPct: { min: 5, max: 50 },
     saltPct: { min: 0, max: 3 },
+    // advisory ranges — the solver warns outside these instead of clamping
+    inoculation: { min: 0.05, max: 0.50 },
     hydration: { min: 0.60, max: 0.85 },
   };
 
   const DEFAULTS = {
-    mode: 'dough',
     doughG: 900,
-    starterG: 150,
+    starterG: 100,
     blend: { ap: 40, ww: 20, bread: 40 },
     starterFlour: 'ap',
-    starterPct: 20,
     saltPct: 2,
     hydrationOffset: 0,
   };
@@ -53,26 +61,10 @@
     return Math.round((PAN_FACTOR * volumeMl) / 50) * 50;
   }
 
-  // Fraction of TOTAL flour that each flour type makes up. The starter's
-  // flour is a fixed share of total flour (starterPct/2, since the starter
-  // is half flour), and the added flour fills the rest per the blend.
-  function effectiveComposition(blend, starterPct, starterFlour) {
-    const starterShare = clamp(starterPct, LIMITS.starterPct.min, LIMITS.starterPct.max) / 200;
-    const comp = {};
-    for (const f of FLOURS) {
-      comp[f.id] = (1 - starterShare) * (blend[f.id] || 0) / 100 +
-        (f.id === starterFlour ? starterShare : 0);
-    }
-    return comp;
-  }
-
-  // → hydration fraction, weighted over what's actually in the dough.
-  function deriveHydration(blend, starterPct, starterFlour) {
-    if (starterPct === undefined) starterPct = DEFAULTS.starterPct;
-    if (starterFlour === undefined) starterFlour = DEFAULTS.starterFlour;
-    const comp = effectiveComposition(blend, starterPct, starterFlour);
+  // Hydration of the ADDED flour blend alone (weighted average).
+  function blendHydration(blend) {
     let h = 0;
-    for (const f of FLOURS) h += comp[f.id] * f.hydration;
+    for (const f of FLOURS) h += ((blend[f.id] || 0) / 100) * f.hydration;
     return h;
   }
 
@@ -107,76 +99,76 @@
   }
 
   // Solve the full recipe from either direction. Everything pivots on total
-  // flour F: given starter S, F = S/p; given dough D, F = D/(1+h+s).
+  // flour F (see the derivation at the top of this file), then everything
+  // else — added flours, water, salt, inoculation — follows from F.
   //
   // Returns exact float totals plus a `weigh` object of display-ready
-  // integers where water is the residual, so displayed grams sum exactly.
+  // integers where water is the residual, so displayed grams sum exactly
+  // to the dough target.
   function solve(params) {
-    const { mode, blend } = params;
+    const { blend } = params;
     const starterFlour = params.starterFlour || DEFAULTS.starterFlour;
-    const p = clamp(params.starterPct, LIMITS.starterPct.min, LIMITS.starterPct.max) / 100;
+    const hst = FLOURS.find((f) => f.id === starterFlour).hydration;
+    const Hb = blendHydration(blend);
     const s = clamp(params.saltPct, LIMITS.saltPct.min, LIMITS.saltPct.max) / 100;
-    const h = clamp(
-      deriveHydration(blend, params.starterPct, starterFlour) +
-        (params.hydrationOffset || 0) / 100,
-      LIMITS.hydration.min, LIMITS.hydration.max,
-    );
-
-    let F;
-    if (mode === 'starter') {
-      F = clamp(params.starterG, LIMITS.starterG.min, LIMITS.starterG.max) / p;
-    } else {
-      F = clamp(params.doughG, LIMITS.doughG.min, LIMITS.doughG.max) / (1 + h + s);
-    }
-    const S = mode === 'starter' ? params.starterG : p * F;
-    const W = h * F;
-    const salt = s * F;
-    const D = F * (1 + h + s);
-    const addedFlour = F - S / 2;
+    const off = (params.hydrationOffset || 0) / 100;
+    const D = clamp(params.doughG, LIMITS.doughG.min, LIMITS.doughG.max);
+    let S = clamp(params.starterG, LIMITS.starterG.min, LIMITS.starterG.max);
 
     const warnings = [];
+    // Largest starter this dough target can hold (added flour would hit 0):
+    const maxS = (2 * D) / (1 + hst + s + off);
+    if (S > maxS) {
+      S = Math.floor(maxS);
+      warnings.push(`That much starter doesn't fit this dough target — using ${S} g.`);
+    }
+
+    const x = S / 2; // the starter's flour (and also its water)
+    const F = (D - x * (hst - Hb)) / (1 + Hb + s + off);
+    const added = F - x;
+    const p = S / F; // inoculation: starter as a fraction of total flour
+    const h = (Hb * added + hst * x) / F + off;
+    const W = h * F;
+    const salt = s * F;
+
+    if (p > LIMITS.inoculation.max) {
+      warnings.push(`High inoculation (${Math.round(p * 100)}% starter) — fermentation will be fast and tangy.`);
+    } else if (p < LIMITS.inoculation.min) {
+      warnings.push(`Low inoculation (${Math.round(p * 100)}% starter) — fermentation will be slow.`);
+    }
+    if (h < LIMITS.hydration.min - 1e-9) {
+      warnings.push(`Hydration is unusually low (${(h * 100).toFixed(1)}%) — expect a stiff dough.`);
+    } else if (h > LIMITS.hydration.max + 1e-9) {
+      warnings.push(`Hydration is unusually high (${(h * 100).toFixed(1)}%) — expect a slack dough.`);
+    }
+
     const rS = Math.round(S);
     const rSalt = s > 0 ? Math.max(1, Math.round(salt)) : 0;
-    const rAP = Math.round((blend.ap / 100) * addedFlour);
-    const rWW = Math.round((blend.ww / 100) * addedFlour);
-    const rBread = Math.round((blend.bread / 100) * addedFlour);
-
-    let rWater, rTotal;
-    if (mode === 'dough') {
-      rTotal = Math.round(params.doughG);
-      rWater = rTotal - rS - rSalt - rAP - rWW - rBread;
-    } else {
-      rWater = Math.round(h * F - S / 2);
-      rTotal = rS + rSalt + rAP + rWW + rBread + rWater;
-    }
+    const rAP = Math.round((blend.ap / 100) * added);
+    const rWW = Math.round((blend.ww / 100) * added);
+    const rBread = Math.round((blend.bread / 100) * added);
+    const rTotal = Math.round(D);
+    let rWater = rTotal - rS - rSalt - rAP - rWW - rBread;
     if (rWater < 0) {
-      warnings.push('Not enough room for water at these settings — increase dough weight or reduce starter.');
+      warnings.push('No room for water at these settings — reduce starter or raise the dough weight.');
       rWater = 0;
     }
 
-    const comp = effectiveComposition(blend, params.starterPct, starterFlour);
     return {
-      totals: { flour: F, water: W, starter: S, salt, dough: D, hydration: h },
+      totals: { flour: F, water: W, starter: S, salt, dough: D, hydration: h, inoculation: p },
       weigh: { ap: rAP, ww: rWW, bread: rBread, water: rWater, salt: rSalt, starter: rS, total: rTotal },
       pct: {
-        ap: comp.ap * 100, ww: comp.ww * 100, bread: comp.bread * 100,
+        ap: ((blend.ap / 100) * added + (starterFlour === 'ap' ? x : 0)) / F * 100,
+        ww: ((blend.ww / 100) * added + (starterFlour === 'ww' ? x : 0)) / F * 100,
+        bread: ((blend.bread / 100) * added + (starterFlour === 'bread' ? x : 0)) / F * 100,
         water: h * 100, salt: s * 100, starter: p * 100,
       },
       warnings,
     };
   }
 
-  function solveFromStarter(starterG, params) {
-    return solve({ ...params, mode: 'starter', starterG });
-  }
-
-  function solveFromDough(doughG, params) {
-    return solve({ ...params, mode: 'dough', doughG });
-  }
-
   return {
     FLOURS, PAN_FACTOR, PANS, LIMITS, DEFAULTS, clamp, panPreset,
-    effectiveComposition, deriveHydration, rebalanceBlend,
-    solve, solveFromStarter, solveFromDough,
+    blendHydration, rebalanceBlend, solve,
   };
 });

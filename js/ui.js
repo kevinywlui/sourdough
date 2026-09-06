@@ -1,19 +1,18 @@
 // All DOM code lives here. State flows one way: events parse input and call
 // update(); render() recomputes the recipe and writes every derived output.
 // Inputs the user is typing in are never rewritten while focused.
-
 (() => {
 'use strict';
 
 const {
   FLOURS, PANS, DEFAULTS, LIMITS,
-  solve, deriveHydration, rebalanceBlend, clamp,
+  solve, rebalanceBlend, clamp,
 } = LoafRecipe;
 const { load, save, storageAvailable } = LoafStorage;
 
 const $ = (id) => document.getElementById(id);
 
-const RECIPE_INPUT_KEYS = ['mode', 'doughG', 'starterG', 'blend', 'starterFlour', 'starterPct', 'saltPct', 'hydrationOffset'];
+const RECIPE_INPUT_KEYS = ['doughG', 'starterG', 'blend', 'starterFlour', 'saltPct', 'hydrationOffset'];
 
 const BLEND_PRESETS = [
   { label: 'All AP', blend: { ap: 100, ww: 0, bread: 0 } },
@@ -26,7 +25,6 @@ let state = {
   ...DEFAULTS,
   lockedFlour: null,
   view: 'g',
-  checked: {},
   saved: [],
   loadedId: null,
   confirmDeleteId: null,
@@ -71,17 +69,8 @@ function initUI() {
   updateStickyBar();
 }
 
-function update(patch, { resetChecks } = {}) {
-  // Only a patch that actually CHANGES a recipe input invalidates the
-  // checklist — tapping the already-active mode/chip/preset must not.
-  const touchedRecipe = resetChecks !== false &&
-    Object.keys(patch).some((k) => RECIPE_INPUT_KEYS.includes(k) &&
-      JSON.stringify(patch[k]) !== JSON.stringify(state[k]));
+function update(patch) {
   state = { ...state, ...patch };
-  if (touchedRecipe && Object.keys(state.checked).length > 0) {
-    state.checked = {};
-    toast('Ingredient checks reset');
-  }
   render();
   persist();
 }
@@ -108,7 +97,7 @@ function buildPanChips() {
     b.type = 'button';
     b.textContent = `${pan.label} · ${pan.grams} g`;
     b.dataset.grams = pan.grams;
-    b.addEventListener('click', () => update({ mode: 'dough', doughG: pan.grams }));
+    b.addEventListener('click', () => update({ doughG: pan.grams }));
     row.appendChild(b);
   }
 }
@@ -166,7 +155,7 @@ function buildBlendRows() {
     });
     const lock = row.querySelector('.lock-btn');
     lock.addEventListener('click', () => {
-      update({ lockedFlour: state.lockedFlour === flour.id ? null : flour.id }, { resetChecks: false });
+      update({ lockedFlour: state.lockedFlour === flour.id ? null : flour.id });
     });
     row.dataset.flour = flour.id;
     wrap.appendChild(row);
@@ -178,12 +167,6 @@ function setBlend(key, value) {
 }
 
 function buildSteppers() {
-  makeStepper($('starterpct-stepper'), {
-    get: () => state.starterPct,
-    set: (v) => update({ starterPct: clamp(v, LIMITS.starterPct.min, LIMITS.starterPct.max) }),
-    step: 5,
-    fmt: (v) => `${v}%`,
-  });
   makeStepper($('saltpct-stepper'), {
     get: () => state.saltPct,
     set: (v) => update({ saltPct: clamp(Math.round(v * 4) / 4, LIMITS.saltPct.min, LIMITS.saltPct.max) }),
@@ -215,41 +198,17 @@ function wireEvents() {
   window.addEventListener('pointerup', endSliderDrag);
   window.addEventListener('pointercancel', endSliderDrag);
 
-  $('mode-dough').addEventListener('click', () => update({ mode: 'dough' }));
-  $('mode-starter').addEventListener('click', () => update({ mode: 'starter' }));
-
-  wireNumericInput($('dough-input'), (v) => {
-    if (state.mode === 'dough') update({ doughG: clamp(v, LIMITS.doughG.min, LIMITS.doughG.max) });
-  });
-  wireNumericInput($('starter-input'), (v) => {
-    if (state.mode === 'starter') update({ starterG: clamp(v, LIMITS.starterG.min, LIMITS.starterG.max) });
-  });
-  // Tapping the computed field switches to that mode. The tap focuses the
-  // input before render runs, so force-sync the values before refocusing —
-  // otherwise the field keeps showing the stale computed number.
-  $('dough-field').addEventListener('click', () => {
-    if (state.mode !== 'dough') {
-      update({ mode: 'dough' });
-      syncNumericInputs();
-      $('dough-input').focus();
-      $('dough-input').select();
-    }
-  });
-  $('starter-field').addEventListener('click', () => {
-    if (state.mode !== 'starter') {
-      update({ mode: 'starter' });
-      syncNumericInputs();
-      $('starter-input').focus();
-      $('starter-input').select();
-    }
-  });
+  wireNumericInput($('dough-input'), (v) =>
+    update({ doughG: clamp(v, LIMITS.doughG.min, LIMITS.doughG.max) }));
+  wireNumericInput($('starter-input'), (v) =>
+    update({ starterG: clamp(v, LIMITS.starterG.min, LIMITS.starterG.max) }));
 
   $('hyd-minus').addEventListener('click', () => update({ hydrationOffset: state.hydrationOffset - 1 }));
   $('hyd-plus').addEventListener('click', () => update({ hydrationOffset: state.hydrationOffset + 1 }));
   $('hyd-reset').addEventListener('click', () => update({ hydrationOffset: 0 }));
 
-  $('view-g').addEventListener('click', () => update({ view: 'g' }, { resetChecks: false }));
-  $('view-pct').addEventListener('click', () => update({ view: 'pct' }, { resetChecks: false }));
+  $('view-g').addEventListener('click', () => update({ view: 'g' }));
+  $('view-pct').addEventListener('click', () => update({ view: 'pct' }));
 
   $('sticky-bar').addEventListener('click', () =>
     $('recipe-card').scrollIntoView({ behavior: 'smooth', block: 'center' }));
@@ -293,24 +252,18 @@ function endSliderDrag() {
 
 // Write the canonical values into both numeric fields, focus or not.
 function syncNumericInputs() {
-  const result = solve(state);
-  if (state.mode === 'dough') {
-    $('dough-input').value = Math.round(state.doughG);
-    $('starter-input').value = result.weigh.starter;
-  } else {
-    $('starter-input').value = Math.round(state.starterG);
-    $('dough-input').value = result.weigh.total;
-  }
+  $('dough-input').value = Math.round(state.doughG);
+  $('starter-input').value = Math.round(state.starterG);
 }
 
 /* ---------- render ---------- */
 
 function render() {
   const result = solve(state);
-  renderMode();
-  renderPanChips();
+  renderInputs(result);
+  renderChips();
   renderBlend();
-  renderHydration();
+  renderHydration(result);
   renderRecipe(result);
   renderStickyBar(result);
   renderSaved();
@@ -321,46 +274,16 @@ function setInputValue(input, value) {
   if (document.activeElement !== input) input.value = value;
 }
 
-function renderMode() {
-  const doughMode = state.mode === 'dough';
-  $('mode-dough').setAttribute('aria-pressed', doughMode);
-  $('mode-starter').setAttribute('aria-pressed', !doughMode);
-  $('dough-field').classList.toggle('computed', !doughMode);
-  $('starter-field').classList.toggle('computed', doughMode);
-  $('dough-input').readOnly = !doughMode;
-  $('starter-input').readOnly = doughMode;
-
-  // The computed (read-only) field is written unconditionally — the user
-  // can't be typing in it, but a tap can leave it focused.
-  const result = solve(state);
-  if (doughMode) {
-    setInputValue($('dough-input'), Math.round(state.doughG));
-    $('starter-input').value = result.weigh.starter;
-    $('dough-note').textContent = '';
-    $('starter-note').textContent = 'computed';
-  } else {
-    setInputValue($('starter-input'), Math.round(state.starterG));
-    $('dough-input').value = result.weigh.total;
-    $('starter-note').textContent = '';
-    const fit = bestFitPan(result.weigh.total);
-    $('dough-note').textContent = fit ? `computed · ≈ fills a ${fit.label} pan` : 'computed';
-  }
+function renderInputs(result) {
+  setInputValue($('dough-input'), Math.round(state.doughG));
+  setInputValue($('starter-input'), Math.round(state.starterG));
+  $('starter-note').textContent =
+    `= ${Math.round(result.totals.inoculation * 100)}% of total flour`;
 }
 
-function bestFitPan(grams) {
-  let best = null;
-  for (const pan of PANS) {
-    const diff = Math.abs(pan.grams - grams);
-    if (diff / pan.grams < 0.15 && (!best || diff < Math.abs(best.grams - grams))) best = pan;
-  }
-  return best;
-}
-
-function renderPanChips() {
-  const chips = $('pan-chips').children;
-  for (const chip of chips) {
-    const active = state.mode === 'dough' && Number(chip.dataset.grams) === Math.round(state.doughG);
-    chip.setAttribute('aria-pressed', active);
+function renderChips() {
+  for (const chip of $('pan-chips').children) {
+    chip.setAttribute('aria-pressed', Number(chip.dataset.grams) === Math.round(state.doughG));
   }
   for (const chip of $('starter-flour-chips').children) {
     chip.setAttribute('aria-pressed', chip.dataset.flour === state.starterFlour);
@@ -382,14 +305,9 @@ function renderBlend() {
   }
 }
 
-function renderHydration() {
-  const h = clamp(
-    deriveHydration(state.blend, state.starterPct, state.starterFlour) +
-      state.hydrationOffset / 100,
-    LIMITS.hydration.min, LIMITS.hydration.max,
-  );
+function renderHydration(result) {
   const el = $('hyd-value');
-  el.textContent = `${(h * 100).toFixed(1)}%`;
+  el.textContent = `${(result.totals.hydration * 100).toFixed(1)}%`;
   el.classList.toggle('adjusted', state.hydrationOffset !== 0);
   $('hyd-reset').style.visibility = state.hydrationOffset !== 0 ? 'visible' : 'hidden';
 }
@@ -410,28 +328,23 @@ function renderRecipe(result) {
   const list = $('recipe-rows');
   list.textContent = '';
   for (const ing of ING_ROWS) {
-    if (state.view === 'g' && result.weigh[ing.id] === 0 && state.blend[ing.id] === 0) continue;
+    if (result.weigh[ing.id] === 0 && (state.blend[ing.id] ?? 1) === 0) continue;
     const li = document.createElement('li');
     li.className = 'recipe-row';
-    if (state.checked[ing.id]) li.classList.add('checked');
     const amount = state.view === 'g'
       ? `${result.weigh[ing.id]}<span class="unit"> g</span>`
       : `${result.pct[ing.id].toFixed(1)}<span class="unit">%</span>`;
     li.innerHTML = `
-      <span class="check">${state.checked[ing.id] ? '✓' : ''}</span>
       <span class="ing-name">${ing.label}</span>
       <span class="ing-amount">${amount}</span>
     `;
-    li.addEventListener('click', () => {
-      state.checked = { ...state.checked, [ing.id]: !state.checked[ing.id] };
-      render();
-    });
     list.appendChild(li);
   }
 
   const h = (result.totals.hydration * 100).toFixed(1);
+  const inoc = Math.round(result.totals.inoculation * 100);
   $('recipe-total').textContent = state.view === 'g'
-    ? `Total dough ${result.weigh.total} g · ${h}% hydration · ${state.saltPct}% salt`
+    ? `Total dough ${result.weigh.total} g · ${h}% hydration · ${inoc}% starter · ${state.saltPct}% salt`
     : `Percentages are of total flour (${Math.round(result.totals.flour)} g), starter flour included`;
 
   const warn = $('warnings');
@@ -487,7 +400,7 @@ function saveCurrentRecipe(name) {
   ].slice(0, 50);
   $('save-form').hidden = true;
   $('save-open').hidden = false;
-  update({ saved }, { resetChecks: false });
+  update({ saved });
   toast(`Saved “${name}”`);
 }
 
@@ -511,11 +424,11 @@ function renderSaved() {
         update({
           saved: state.saved.filter((r) => r.id !== recipe.id),
           confirmDeleteId: null,
-        }, { resetChecks: false });
+        });
       });
       const cancel = document.createElement('button');
       cancel.className = 'link-btn'; cancel.type = 'button'; cancel.textContent = 'Cancel';
-      cancel.addEventListener('click', () => update({ confirmDeleteId: null }, { resetChecks: false }));
+      cancel.addEventListener('click', () => update({ confirmDeleteId: null }));
       wrap.append(label, del, cancel);
       li.appendChild(wrap);
       list.appendChild(li);
@@ -536,12 +449,16 @@ function renderSaved() {
     `;
     li.querySelector('.saved-name').textContent = recipe.name;
     li.querySelector('.saved-main').addEventListener('click', () => {
-      update({ ...recipe.inputs, loadedId: recipe.id });
+      const inputs = {};
+      for (const k of RECIPE_INPUT_KEYS) {
+        if (recipe.inputs[k] !== undefined) inputs[k] = recipe.inputs[k];
+      }
+      update({ ...inputs, loadedId: recipe.id });
       toast(`Loaded “${recipe.name}”`);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
     li.querySelector('.saved-del').addEventListener('click', () =>
-      update({ confirmDeleteId: recipe.id }, { resetChecks: false }));
+      update({ confirmDeleteId: recipe.id }));
     list.appendChild(li);
   }
 }

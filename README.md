@@ -25,15 +25,22 @@ node --test test/
 Baker's math with total flour = 100%, where the flour and water inside the
 starter (100% hydration) count toward the totals. The blend describes only
 the flour you **add**; the starter's flour counts toward whichever flour it
-is fed with (AP/WW/bread selector). Everything pivots on total flour `F`:
+is fed with (AP/WW/bread selector).
 
-- **From starter:** `F = starter / starter%`
-- **From dough target:** `F = dough / (1 + hydration + salt%)`
+You enter BOTH the dough target `D` and the starter `S` you have, so
+inoculation (starter ÷ total flour) is derived, not chosen. With `x = S/2`,
+`Hb` = the added blend's weighted hydration, and `hst` = the starter
+flour's hydration, total flour solves in closed form:
+
+```
+F = (D − x·(hst − Hb)) / (1 + Hb + salt% + nudge)
+```
 
 Target hydration is a weighted average over what's actually in the dough
 (AP 67%, bread 72%, whole wheat 80% — added flours plus the starter's),
-nudgeable ±. Displayed grams round with water as the residual so the table
-always sums exactly.
+nudgeable ±. The solver warns (rather than blocking) on unusual inoculation
+or hydration. Displayed grams round with water as the residual so the table
+always sums exactly to the target.
 
 ## Files
 
