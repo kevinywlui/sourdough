@@ -28,7 +28,7 @@ let state = {
   saved: [],
   loadedId: null,
   confirmDeleteId: null,
-  prefs: { theme: 'auto', large: false },
+  prefs: { theme: 'auto' },
 };
 
 let draggingSlider = null;
@@ -217,11 +217,6 @@ function wireEvents() {
   });
 
   $('theme-toggle').addEventListener('click', cycleTheme);
-  $('large-toggle').addEventListener('click', () => {
-    state.prefs.large = !state.prefs.large;
-    applyPrefs();
-    persist();
-  });
 }
 
 function wireNumericInput(input, onValue) {
@@ -461,8 +456,6 @@ function applyPrefs() {
   const root = document.documentElement;
   if (state.prefs.theme === 'auto') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', state.prefs.theme);
-  if (state.prefs.large) root.setAttribute('data-large', '');
-  else root.removeAttribute('data-large');
   $('theme-toggle').title = `Theme: ${state.prefs.theme}`;
   $('theme-toggle').textContent = { auto: '◐', light: '☀', dark: '☾' }[state.prefs.theme];
 }

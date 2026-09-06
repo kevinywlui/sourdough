@@ -42,8 +42,6 @@
   --card-shadow: none;
 }
 
-:root[data-large] { font-size: 118%; }
-
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* Author display rules (e.g. .save-form { display: flex }) would otherwise
