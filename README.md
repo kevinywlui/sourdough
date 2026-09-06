@@ -33,8 +33,7 @@ is fed with (AP/WW/bread selector). Everything pivots on total flour `F`:
 Target hydration is a weighted average over what's actually in the dough
 (AP 67%, bread 72%, whole wheat 80% — added flours plus the starter's),
 nudgeable ±. Displayed grams round with water as the residual so the table
-always sums exactly. The bake timeline scales bulk fermentation with room
-temperature (rate ~doubles per 8°C) and starter %.
+always sums exactly.
 
 ## Files
 
@@ -42,7 +41,6 @@ The JS modules are UMD-style: plain `<script>` tags in the browser (so
 `file://` works — no bundler, no modules), `require()` in the tests.
 
 - `js/recipe.js` — pure recipe math (solving, blend rebalancing, pan presets)
-- `js/timeline.js` — pure schedule math
 - `js/storage.js` — versioned localStorage wrapper (degrades if blocked)
 - `js/ui.js` — all DOM code: single state object, full re-render on change
 - `test/` — `node:test` suites for the math modules

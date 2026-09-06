@@ -33,7 +33,6 @@
     doughG: { min: 200, max: 2500 },
     starterPct: { min: 5, max: 50 },
     saltPct: { min: 0, max: 3 },
-    tempC: { min: 15, max: 30 },
     hydration: { min: 0.60, max: 0.85 },
   };
 
@@ -46,7 +45,6 @@
     starterPct: 20,
     saltPct: 2,
     hydrationOffset: 0,
-    tempC: 22,
   };
 
   const clamp = (v, min, max) => Math.min(max, Math.max(min, v));

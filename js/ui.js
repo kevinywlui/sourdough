@@ -9,7 +9,6 @@ const {
   FLOURS, PANS, DEFAULTS, LIMITS,
   solve, deriveHydration, rebalanceBlend, clamp,
 } = LoafRecipe;
-const { schedule, formatDuration } = LoafTimeline;
 const { load, save, storageAvailable } = LoafStorage;
 
 const $ = (id) => document.getElementById(id);
@@ -28,7 +27,6 @@ let state = {
   lockedFlour: null,
   view: 'g',
   checked: {},
-  bake: null, // { startedAt: ms, done: { stageId: ms } }
   saved: [],
   loadedId: null,
   confirmDeleteId: null,
@@ -45,7 +43,6 @@ function initUI() {
   if (stored) {
     if (stored.current) state = { ...state, ...stored.current };
     if (Array.isArray(stored.saved)) state.saved = stored.saved;
-    if (stored.bake) state.bake = stored.bake;
     if (stored.prefs) state.prefs = { ...state.prefs, ...stored.prefs };
   }
 
@@ -72,12 +69,6 @@ function initUI() {
   window.addEventListener('scroll', updateStickyBar, { passive: true });
   window.addEventListener('resize', updateStickyBar, { passive: true });
   updateStickyBar();
-
-  // Clock times and the current-stage highlight drift without a re-render.
-  setInterval(renderTimeline, 60_000);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') renderTimeline();
-  });
 }
 
 function update(patch, { resetChecks } = {}) {
@@ -98,12 +89,12 @@ function update(patch, { resetChecks } = {}) {
 function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const { saved, bake, prefs, checked, ...rest } = state;
+    const { saved, prefs } = state;
     const current = {};
-    for (const k of [...RECIPE_INPUT_KEYS, 'lockedFlour', 'view', 'tempC', 'loadedId']) {
-      current[k] = rest[k] ?? state[k];
+    for (const k of [...RECIPE_INPUT_KEYS, 'lockedFlour', 'view', 'loadedId']) {
+      current[k] = state[k];
     }
-    save({ current, saved, bake, prefs });
+    save({ current, saved, prefs });
   }, 200);
 }
 
@@ -199,12 +190,6 @@ function buildSteppers() {
     step: 0.25,
     fmt: (v) => `${v}%`,
   });
-  makeStepper($('temp-stepper'), {
-    get: () => state.tempC,
-    set: (v) => update({ tempC: clamp(v, LIMITS.tempC.min, LIMITS.tempC.max) }, { resetChecks: false }),
-    step: 1,
-    fmt: (v) => `${v}°C`,
-  });
 }
 
 const stepperRenderers = [];
@@ -269,13 +254,6 @@ function wireEvents() {
   $('sticky-bar').addEventListener('click', () =>
     $('recipe-card').scrollIntoView({ behavior: 'smooth', block: 'center' }));
 
-  $('bake-start').addEventListener('click', () => {
-    if (state.bake) return;
-    update({ bake: { startedAt: Date.now(), done: {} } }, { resetChecks: false });
-    maybeOfferWakeLock();
-  });
-  $('bake-reset').addEventListener('click', () => update({ bake: null }, { resetChecks: false }));
-
   $('save-open').addEventListener('click', openSaveForm);
   $('save-cancel').addEventListener('click', () => { $('save-form').hidden = true; $('save-open').hidden = false; });
   $('save-form').addEventListener('submit', (e) => {
@@ -335,7 +313,6 @@ function render() {
   renderHydration();
   renderRecipe(result);
   renderStickyBar(result);
-  renderTimeline();
   renderSaved();
   stepperRenderers.forEach((fn) => fn());
 }
@@ -480,79 +457,6 @@ function updateStickyBar() {
   $('sticky-bar').hidden = cardBottom > 56;
 }
 
-function renderTimeline() {
-  const stages = schedule(state.tempC, state.starterPct);
-  const list = $('stages');
-  list.textContent = '';
-
-  const started = !!state.bake;
-  $('bake-start').hidden = started;
-  $('bake-reset').hidden = !started;
-
-  // Each stage starts when the previous ends — or when it was actually
-  // marked done, which re-anchors everything after it to reality.
-  let cursor = started ? state.bake.startedAt : null;
-  let currentFound = false;
-
-  for (const stage of stages) {
-    const li = document.createElement('li');
-    li.className = 'stage';
-    const doneAt = started ? state.bake.done[stage.id] : null;
-    let timeText = formatDuration(stage.minutes);
-    let subText = stage.note || '';
-
-    if (started) {
-      const startAt = cursor;
-      const endAt = doneAt ?? startAt + stage.minutes * 60000;
-      if (doneAt) {
-        li.classList.add('done');
-        timeText = `done ${clock(doneAt)}`;
-      } else {
-        timeText = `until ~${clock(endAt)}`;
-        if (!currentFound) {
-          li.classList.add('current');
-          currentFound = true;
-        }
-        subText = [formatDuration(stage.minutes), stage.note].filter(Boolean).join(' · ');
-      }
-      li.classList.add('tappable');
-      cursor = endAt;
-    }
-
-    li.innerHTML = `
-      <span class="dot"></span>
-      <div class="stage-top">
-        <span class="stage-label">${stage.label}</span>
-        <span class="stage-time">${timeText}</span>
-      </div>
-      ${subText ? `<div class="stage-sub">${subText}</div>` : ''}
-    `;
-    if (started) li.addEventListener('click', () => toggleStageDone(stage.id));
-    list.appendChild(li);
-  }
-
-  const totalMin = stages.reduce((a, s) => a + s.minutes, 0);
-  const untilBake = stages.slice(0, 4).reduce((a, s) => a + s.minutes, 0);
-  if (started) {
-    $('timeline-summary').textContent = `Started ${clock(state.bake.startedAt)} · tap a stage when it's done`;
-  } else {
-    const bakeAt = new Date(Date.now() + untilBake * 60000);
-    $('timeline-summary').textContent =
-      `Total about ${formatDuration(totalMin)} — start now and bake around ${clock(bakeAt)}`;
-  }
-}
-
-function toggleStageDone(id) {
-  const done = { ...state.bake.done };
-  if (done[id]) delete done[id];
-  else done[id] = Date.now();
-  update({ bake: { ...state.bake, done } }, { resetChecks: false });
-}
-
-function clock(t) {
-  return new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
 /* ---------- saved recipes ---------- */
 
 function openSaveForm() {
@@ -576,7 +480,7 @@ function autoName() {
 function saveCurrentRecipe(name) {
   if (!name) name = autoName();
   const inputs = {};
-  for (const k of [...RECIPE_INPUT_KEYS, 'tempC']) inputs[k] = state[k];
+  for (const k of RECIPE_INPUT_KEYS) inputs[k] = state[k];
   const saved = [
     { id: `r_${Date.now()}`, name, inputs, updatedAt: new Date().toISOString() },
     ...state.saved,
@@ -595,7 +499,7 @@ function renderSaved() {
     li.className = 'saved-row';
 
     // The confirm prompt lives in state so an unrelated render (a stepper
-    // tap, the timeline refresh) rebuilds it instead of dismissing it.
+    // tap elsewhere) rebuilds it instead of dismissing it.
     if (state.confirmDeleteId === recipe.id) {
       const wrap = document.createElement('div');
       wrap.className = 'saved-confirm';
@@ -681,14 +585,6 @@ async function setWakeLock(on) {
     }
   } catch {
     $('wake-toggle').checked = false;
-  }
-}
-
-function maybeOfferWakeLock() {
-  if ('wakeLock' in navigator && !$('wake-toggle').checked) {
-    $('wake-toggle').checked = true;
-    setWakeLock(true);
-    toast('Keeping the screen awake during the bake');
   }
 }
 
