@@ -298,7 +298,14 @@ input[type="range"]::-moz-range-thumb {
   color: var(--accent); font-size: 0.875rem; font-weight: 600;
   min-height: 44px; padding: 0 var(--s2);
 }
-.suggest-btn { display: block; margin-left: auto; text-align: right; }
+.suggest-row {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: var(--s2); margin-top: var(--s2); flex-wrap: wrap;
+}
+.suggest-row .field-note { margin-top: 0; }
+.chip-accent {
+  border-color: var(--accent); color: var(--accent); font-weight: 600;
+}
 
 /* ---------- Saved recipes ---------- */
 .secondary-btn {

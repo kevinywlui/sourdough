@@ -260,9 +260,8 @@ function renderInputs(result) {
 
   // "How much starter should I prepare?" — hide once they're already there.
   const suggested = suggestStarter(state);
-  const btn = $('starter-suggest');
-  btn.hidden = Math.round(state.starterG) === suggested;
-  btn.textContent = `Building starter for this loaf? Prepare ${suggested} g`;
+  $('suggest-row').hidden = Math.round(state.starterG) === suggested;
+  $('starter-suggest').textContent = `Use ${suggested} g`;
 }
 
 function renderChips() {
