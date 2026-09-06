@@ -42,12 +42,16 @@ function storageAvailable() {
 
 const RECIPE_INPUT_KEYS = ['doughG', 'starterG', 'blend', 'starterFlour', 'saltPct', 'hydrationOffset'];
 
+// Blends may be sparse here; fullBlend() fills the missing flours with 0.
 const BLEND_PRESETS = [
-  { label: 'All AP', blend: { ap: 100, ww: 0, bread: 0 } },
-  { label: 'All bread', blend: { ap: 0, ww: 0, bread: 100 } },
-  { label: '80/20 WW', blend: { ap: 0, ww: 20, bread: 80 } },
+  { label: 'All AP', blend: { ap: 100 } },
+  { label: 'All bread', blend: { bread: 100 } },
+  { label: '80/20 WW', blend: { bread: 80, ww: 20 } },
   { label: '40/20/40', blend: { ap: 40, ww: 20, bread: 40 } },
 ];
+
+const fullBlend = (b = {}) =>
+  Object.fromEntries(FLOURS.map((f) => [f.id, b[f.id] || 0]));
 
 let state = {
   ...DEFAULTS,
@@ -68,6 +72,7 @@ function initUI() {
     if (stored.current) state = { ...state, ...stored.current };
     if (Array.isArray(stored.saved)) state.saved = stored.saved;
     state.theme = stored.theme || stored.prefs?.theme || 'auto';
+    state.blend = fullBlend(state.blend); // older storage may lack newer flours
   }
 
   buildChips($('pan-chips'), PANS,
@@ -78,7 +83,7 @@ function initUI() {
     (f) => update({ starterFlour: f.id }));
   buildChips($('blend-presets'), BLEND_PRESETS,
     (p) => p.label,
-    (p) => update({ blend: { ...p.blend }, lockedFlour: null }));
+    (p) => update({ blend: fullBlend(p.blend), lockedFlour: null }));
   buildBlendRows();
   wireEvents();
   applyTheme();
@@ -282,9 +287,7 @@ function renderHydration(result) {
 }
 
 const ING_ROWS = [
-  { id: 'ap', label: 'All-purpose flour' },
-  { id: 'ww', label: 'Whole wheat' },
-  { id: 'bread', label: 'Bread flour' },
+  ...FLOURS.map((f) => ({ id: f.id, label: f.label })),
   { id: 'water', label: 'Water' },
   { id: 'salt', label: 'Salt' },
   { id: 'starter', label: 'Starter' },
@@ -326,8 +329,8 @@ function renderRecipe(result) {
 }
 
 function renderStickyBar(result) {
-  const { ap, ww, bread, water, salt, starter } = result.weigh;
-  const flours = [ap, ww, bread].filter((g) => g > 0).join('+');
+  const { water, salt, starter } = result.weigh;
+  const flours = FLOURS.map((f) => result.weigh[f.id]).filter((g) => g > 0).join('+');
   $('sticky-bar').textContent =
     `${flours} flour · ${water} water · ${salt} salt · ${starter} starter`;
   updateStickyBar();
@@ -422,6 +425,7 @@ function renderSaved() {
       for (const k of RECIPE_INPUT_KEYS) {
         if (recipe.inputs[k] !== undefined) inputs[k] = recipe.inputs[k];
       }
+      if (inputs.blend) inputs.blend = fullBlend(inputs.blend);
       update(inputs);
       toast(`Loaded “${recipe.name}”`);
       window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -1,15 +1,28 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  blendHydration, solve, rebalanceBlend, DEFAULTS,
+  FLOURS, blendHydration, solve, rebalanceBlend, DEFAULTS,
 } = require('../js/recipe.js');
 
 const params = { ...DEFAULTS };
 
 test('blendHydration: pure blends hit per-flour values', () => {
-  assert.equal(blendHydration({ ap: 100, ww: 0, bread: 0 }), 0.67);
-  assert.equal(blendHydration({ ap: 0, ww: 100, bread: 0 }), 0.80);
-  assert.equal(blendHydration({ ap: 0, ww: 0, bread: 100 }), 0.72);
+  assert.equal(blendHydration({ ap: 100 }), 0.67);
+  assert.equal(blendHydration({ ww: 100 }), 0.80);
+  assert.equal(blendHydration({ bread: 100 }), 0.72);
+  assert.equal(blendHydration({ rye: 100 }), 0.85);
+  assert.equal(blendHydration({ spelt: 100 }), 0.68);
+});
+
+test('rye in the blend raises hydration; rye starter works', () => {
+  const plain = solve({ ...params, blend: { bread: 100 } });
+  const withRye = solve({ ...params, blend: { bread: 80, rye: 20 } });
+  assert.ok(withRye.totals.hydration > plain.totals.hydration);
+
+  const ryeStarter = solve({ ...params, blend: { bread: 100 }, starterFlour: 'rye' });
+  assert.ok(ryeStarter.totals.hydration > plain.totals.hydration);
+  assert.equal(ryeStarter.weigh.total, 900);
+  assert.ok(Math.abs(ryeStarter.pct.rye - ryeStarter.totals.inoculation * 100 / 2) < 1e-9);
 });
 
 test('defaults: 900 g dough with 100 g AP starter', () => {
@@ -45,10 +58,10 @@ test("the user's case: 140 g WW starter, all-bread blend, 900 g target", () => {
 
 test('displayed grams always sum exactly to the dough target', () => {
   for (const target of [250, 750, 900, 1450, 2500]) {
-    const r = solve({ ...params, doughG: target });
-    const { ap, ww, bread, water, salt, starter, total } = r.weigh;
-    assert.equal(ap + ww + bread + water + salt + starter, total);
-    assert.equal(total, target);
+    const r = solve({ ...params, doughG: target, blend: { ap: 30, ww: 20, bread: 30, rye: 10, spelt: 10 } });
+    const flourSum = FLOURS.reduce((a, f) => a + r.weigh[f.id], 0);
+    assert.equal(flourSum + r.weigh.water + r.weigh.salt + r.weigh.starter, r.weigh.total);
+    assert.equal(r.weigh.total, target);
   }
 });
 
@@ -98,8 +111,9 @@ test('hydration offset shifts hydration by ~its amount', () => {
 });
 
 test('baker\'s percentages: flours sum to 100% of total flour', () => {
-  const r = solve({ ...params, starterFlour: 'ww' });
-  assert.ok(Math.abs(r.pct.ap + r.pct.ww + r.pct.bread - 100) < 1e-9);
+  const r = solve({ ...params, blend: { ap: 40, ww: 20, bread: 20, rye: 10, spelt: 10 }, starterFlour: 'ww' });
+  const pctSum = FLOURS.reduce((a, f) => a + r.pct[f.id], 0);
+  assert.ok(Math.abs(pctSum - 100) < 1e-9);
   assert.ok(Math.abs(r.pct.starter - r.totals.inoculation * 100) < 1e-9);
 });
 
@@ -127,7 +141,8 @@ test('rebalanceBlend clamps against a lock', () => {
 });
 
 test('rebalanceBlend recovers from a zeroed row', () => {
-  const b = rebalanceBlend({ ap: 100, ww: 0, bread: 0 }, 'ap', 60);
-  assert.equal(b.ap + b.ww + b.bread, 100);
+  const b = rebalanceBlend({ ap: 100 }, 'ap', 60);
+  const sum = FLOURS.reduce((a, f) => a + b[f.id], 0);
+  assert.equal(sum, 100);
   assert.equal(b.ap, 60);
 });

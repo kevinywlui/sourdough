@@ -25,6 +25,8 @@
     { id: 'ap', label: 'All-purpose', short: 'AP', hydration: 0.67 },
     { id: 'ww', label: 'Whole wheat', short: 'WW', hydration: 0.80 },
     { id: 'bread', label: 'Bread flour', short: 'Bread', hydration: 0.72 },
+    { id: 'rye', label: 'Rye', short: 'Rye', hydration: 0.85 },
+    { id: 'spelt', label: 'Spelt', short: 'Spelt', hydration: 0.68 },
   ];
 
   // Preset dough weights ≈ 0.43 g per mL of pan volume, rounded to 50 g.
@@ -48,7 +50,7 @@
   const DEFAULTS = {
     doughG: 900,
     starterG: 100,
-    blend: { ap: 40, ww: 20, bread: 40 },
+    blend: { ap: 40, ww: 20, bread: 40, rye: 0, spelt: 0 },
     starterFlour: 'ap',
     saltPct: 2,
     hydrationOffset: 0,
@@ -69,7 +71,7 @@
   function rebalanceBlend(blend, key, value, lockedKey) {
     const keys = FLOURS.map((f) => f.id);
     const locked = lockedKey && lockedKey !== key ? lockedKey : null;
-    const lockedVal = locked ? blend[locked] : 0;
+    const lockedVal = locked ? blend[locked] || 0 : 0;
     const free = keys.filter((k) => k !== key && k !== locked);
     value = Math.round(clamp(value, 0, 100 - lockedVal));
     const remain = 100 - lockedVal - value;
@@ -78,7 +80,7 @@
       out[free[0]] = remain;
       return out;
     }
-    const cur = free.map((k) => blend[k]);
+    const cur = free.map((k) => blend[k] || 0);
     const curSum = cur.reduce((a, b) => a + b, 0);
     const shares = curSum > 0
       ? cur.map((c) => (remain * c) / curSum)
@@ -139,25 +141,26 @@
 
     const rS = Math.round(S);
     const rSalt = s > 0 ? Math.max(1, Math.round(salt)) : 0;
-    const rAP = Math.round((blend.ap / 100) * added);
-    const rWW = Math.round((blend.ww / 100) * added);
-    const rBread = Math.round((blend.bread / 100) * added);
     const rTotal = Math.round(D);
-    let rWater = rTotal - rS - rSalt - rAP - rWW - rBread;
-    if (rWater < 0) {
+    const weigh = { salt: rSalt, starter: rS, total: rTotal };
+    const pct = { water: h * 100, salt: s * 100, starter: p * 100 };
+    let flourGrams = 0;
+    for (const f of FLOURS) {
+      const share = (blend[f.id] || 0) / 100;
+      weigh[f.id] = Math.round(share * added);
+      flourGrams += weigh[f.id];
+      pct[f.id] = ((share * added + (starterFlour === f.id ? x : 0)) / F) * 100;
+    }
+    weigh.water = rTotal - rS - rSalt - flourGrams;
+    if (weigh.water < 0) {
       warnings.push('No room for water at these settings — reduce starter or raise the dough weight.');
-      rWater = 0;
+      weigh.water = 0;
     }
 
     return {
       totals: { flour: F, water: W, starter: S, salt, dough: D, hydration: h, inoculation: p },
-      weigh: { ap: rAP, ww: rWW, bread: rBread, water: rWater, salt: rSalt, starter: rS, total: rTotal },
-      pct: {
-        ap: ((blend.ap / 100) * added + (starterFlour === 'ap' ? x : 0)) / F * 100,
-        ww: ((blend.ww / 100) * added + (starterFlour === 'ww' ? x : 0)) / F * 100,
-        bread: ((blend.bread / 100) * added + (starterFlour === 'bread' ? x : 0)) / F * 100,
-        water: h * 100, salt: s * 100, starter: p * 100,
-      },
+      weigh,
+      pct,
       warnings,
     };
   }
