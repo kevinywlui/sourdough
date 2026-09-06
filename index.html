@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!-- Serve with: python3 -m http.server  (ES modules don't load over file://) -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Loaf Calc</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Loaf Calc</h1>
+    <div class="topbar-actions">
+      <button id="large-toggle" class="icon-btn" title="Toggle large text" aria-label="Toggle large text">Aa</button>
+      <button id="theme-toggle" class="icon-btn" title="Theme: auto" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <div id="sticky-bar" class="sticky-bar" hidden></div>
+
+  <main>
+    <section aria-labelledby="solve-label">
+      <h2 id="solve-label" class="section-label">Solve from</h2>
+      <div class="segmented" role="tablist">
+        <button id="mode-dough" class="segment" role="tab">Pan / dough</button>
+        <button id="mode-starter" class="segment" role="tab">Starter I have</button>
+      </div>
+
+      <div id="pan-row">
+        <div id="pan-chips" class="chip-row" aria-label="Pan presets"></div>
+      </div>
+
+      <div class="field-grid">
+        <label class="field" id="dough-field">
+          <span class="field-label">Target dough weight</span>
+          <span class="field-input">
+            <input id="dough-input" type="text" inputmode="numeric" autocomplete="off">
+            <span class="unit">g</span>
+          </span>
+          <span class="field-note" id="dough-note"></span>
+        </label>
+        <label class="field" id="starter-field">
+          <span class="field-label">Starter</span>
+          <span class="field-input">
+            <input id="starter-input" type="text" inputmode="numeric" autocomplete="off">
+            <span class="unit">g</span>
+          </span>
+          <span class="field-note" id="starter-note"></span>
+        </label>
+      </div>
+
+      <div class="mini-steppers">
+        <div class="mini-stepper" id="starterpct-stepper">
+          <span class="mini-label">Starter %<small>of flour</small></span>
+        </div>
+        <div class="mini-stepper" id="saltpct-stepper">
+          <span class="mini-label">Salt %</span>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="blend-label">
+      <div class="section-head">
+        <h2 id="blend-label" class="section-label">Flour blend</h2>
+        <div id="blend-presets" class="chip-row chip-row-tight"></div>
+      </div>
+      <div id="blend-rows"></div>
+    </section>
+
+    <section aria-labelledby="hyd-label">
+      <div class="section-head">
+        <h2 id="hyd-label" class="section-label">Hydration <small>(auto from blend)</small></h2>
+      </div>
+      <div class="hydration-row">
+        <span id="hyd-value" class="big-value">72%</span>
+        <div class="stepper-group">
+          <button id="hyd-minus" class="step-btn" aria-label="Lower hydration">−</button>
+          <button id="hyd-plus" class="step-btn" aria-label="Raise hydration">+</button>
+          <button id="hyd-reset" class="step-btn ghost" title="Reset to blend default" aria-label="Reset hydration">↺</button>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="recipe-label">
+      <div class="section-head">
+        <h2 id="recipe-label" class="section-label">Recipe</h2>
+        <div class="segmented segmented-small" role="tablist">
+          <button id="view-g" class="segment" role="tab">g</button>
+          <button id="view-pct" class="segment" role="tab">%</button>
+        </div>
+      </div>
+      <div class="card" id="recipe-card">
+        <ul id="recipe-rows" class="recipe-rows"></ul>
+        <div id="recipe-total" class="recipe-total"></div>
+      </div>
+      <div id="warnings" class="warnings"></div>
+    </section>
+
+    <section aria-labelledby="timeline-label">
+      <div class="section-head">
+        <h2 id="timeline-label" class="section-label">Timeline</h2>
+        <div class="mini-stepper" id="temp-stepper">
+          <span class="mini-label">Room</span>
+        </div>
+      </div>
+      <button id="bake-start" class="primary-btn">▶ Start bake</button>
+      <ol id="stages" class="stages"></ol>
+      <div id="timeline-summary" class="timeline-summary"></div>
+      <button id="bake-reset" class="link-btn" hidden>Reset timeline</button>
+    </section>
+
+    <section aria-labelledby="saved-label">
+      <h2 id="saved-label" class="section-label">Saved recipes</h2>
+      <div id="save-area">
+        <button id="save-open" class="secondary-btn">Save current…</button>
+        <form id="save-form" class="save-form" hidden>
+          <input id="save-name" type="text" autocomplete="off" placeholder="Recipe name">
+          <button type="submit" class="secondary-btn">Save</button>
+          <button type="button" id="save-cancel" class="link-btn">Cancel</button>
+        </form>
+      </div>
+      <ul id="saved-list" class="saved-list"></ul>
+      <p id="storage-note" class="field-note" hidden>Storage is unavailable in this browser — recipes can't be saved.</p>
+    </section>
+
+    <footer class="page-footer">
+      <label class="wake-row" id="wake-row" hidden>
+        <input type="checkbox" id="wake-toggle">
+        <span>Keep screen awake</span>
+      </label>
+      <span class="field-note">Loaf Calc v1</span>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
