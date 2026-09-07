@@ -100,6 +100,12 @@ function initUI() {
   window.addEventListener('scroll', updateStickyBar, { passive: true });
   window.addEventListener('resize', updateStickyBar, { passive: true });
   updateStickyBar();
+
+  // Offline support + home-screen install. Service workers need a secure
+  // context, so skip when opened via file:// — the app works fine without.
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
 }
 
 function update(patch) {

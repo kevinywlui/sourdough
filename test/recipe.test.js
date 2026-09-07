@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   FLOURS, blendHydration, solve, rebalanceBlend, suggestStarter, DEFAULTS,
-} = require('../js/recipe.js');
+} = require('../public/js/recipe.js');
 
 const params = { ...DEFAULTS };
 

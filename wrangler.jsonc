@@ -1,9 +1,9 @@
 // Cloudflare deployment config: a static-assets-only Worker, no build step.
-// The whole repo root is the site (index.html at the top level).
+// Only public/ is deployed — README, tests, and config stay out of the site.
 {
   "name": "sourdough",
   "compatibility_date": "2026-09-06",
   "assets": {
-    "directory": "."
+    "directory": "./public"
   }
 }

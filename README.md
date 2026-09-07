@@ -5,14 +5,16 @@ dependencies, no build step.
 
 ## Run
 
-Open `index.html` directly in a browser (plain scripts, so `file://` works),
-or serve the directory to use it from your phone:
+Open `public/index.html` directly in a browser (plain scripts, so `file://`
+works), or serve it to use it from your phone:
 
 ```sh
-python3 -m http.server 8000
+python3 -m http.server 8000 -d public
 ```
 
-Then open `http://<laptop-ip>:8000` on the phone.
+Then open `http://<laptop-ip>:8000` on the phone. Deploys to Cloudflare via
+`wrangler.jsonc` (static assets from `public/`, no build step). Served over
+HTTPS it's an installable PWA and works offline.
 
 ## Test
 
@@ -49,7 +51,10 @@ always sums exactly to the target.
 The JS modules are UMD-style: plain `<script>` tags in the browser (so
 `file://` works — no bundler, no modules), `require()` in the tests.
 
-- `js/recipe.js` — pure recipe math (solving, blend rebalancing, pan presets)
-- `js/ui.js` — all DOM code plus a small localStorage wrapper: single state
-  object, full re-render on change
+- `public/` — the deployed site: `index.html`, `style.css`, PWA manifest,
+  service worker (`sw.js`, network-first with offline fallback), icons
+- `public/js/recipe.js` — pure recipe math (solving, blend rebalancing,
+  pan presets)
+- `public/js/ui.js` — all DOM code plus a small localStorage wrapper:
+  single state object, full re-render on change
 - `test/` — `node:test` suite for the math module
