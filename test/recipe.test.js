@@ -1,10 +1,15 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  FLOURS, blendHydration, solve, rebalanceBlend, suggestStarter, DEFAULTS,
+  FLOURS, PANS, blendHydration, solve, rebalanceBlend, suggestStarter, DEFAULTS,
 } = require('../public/js/recipe.js');
 
-const params = { ...DEFAULTS };
+// Fixtures below were worked out for a 9×5″ (900 g) loaf.
+const params = { ...DEFAULTS, doughG: 900 };
+
+test('default dough target is the 8.5×4.5″ pan', () => {
+  assert.equal(DEFAULTS.doughG, PANS.find((p) => p.id === 'loaf85').grams);
+});
 
 test('blendHydration: pure blends hit per-flour values', () => {
   assert.equal(blendHydration({ ap: 100 }), 0.67);

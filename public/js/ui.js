@@ -73,7 +73,7 @@ function initUI() {
   }
 
   buildChips($('pan-chips'), PANS,
-    (p) => `${p.label} · ${p.grams} g`,
+    (p) => `${p.grams} g · ${p.label}`,
     (p) => update({ doughG: p.grams }));
   buildChips($('starter-flour-chips'), FLOURS,
     (f) => f.short,

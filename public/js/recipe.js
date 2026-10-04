@@ -28,10 +28,11 @@
   ];
 
   // Preset dough weights ≈ 0.43 g per mL of pan volume, rounded to 50 g.
+  // Ordered by weight — the chips show grams first.
   const PANS = [
+    { id: 'loaf8', label: '8×4″', grams: 550 },
     { id: 'loaf85', label: '8.5×4.5″', grams: 750 },
     { id: 'loaf9', label: '9×5″', grams: 900 },
-    { id: 'mini', label: 'Mini 5.75×3', grams: 250 },
   ];
 
   const LIMITS = {
@@ -44,7 +45,7 @@
   };
 
   const DEFAULTS = {
-    doughG: 900,
+    doughG: 750,
     starterG: 100,
     blend: { ap: 40, ww: 20, bread: 40 },
     starterFlour: 'ap',
