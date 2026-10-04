@@ -78,33 +78,41 @@
   }
 
   // Redistribute a blend after one flour is set to `value`, keeping the sum
-  // at 100. The delta is spread across the other unlocked flours
-  // proportionally (largest-remainder rounding keeps everything integer).
-  function rebalanceBlend(blend, key, value, lockedKey) {
-    const keys = FLOURS.map((f) => f.id);
-    const locked = lockedKey && lockedKey !== key ? lockedKey : null;
-    const lockedVal = locked ? blend[locked] || 0 : 0;
-    const free = keys.filter((k) => k !== key && k !== locked);
-    value = Math.round(clamp(value, 0, 100 - lockedVal));
-    const remain = 100 - lockedVal - value;
+  // at 100. The difference comes out of the flours not in `keep` (the user's
+  // recent edits), proportionally; kept flours only give way once the others
+  // are exhausted. Largest-remainder rounding keeps everything integer.
+  function rebalanceBlend(blend, key, value, keep = []) {
+    const others = FLOURS.map((f) => f.id).filter((k) => k !== key);
+    const kept = others.filter((k) => keep.includes(k));
+    const free = others.filter((k) => !keep.includes(k));
+    value = Math.round(clamp(value, 0, 100));
     const out = { ...blend, [key]: value };
-    if (free.length === 1) {
-      out[free[0]] = remain;
-      return out;
+    const keptSum = kept.reduce((a, k) => a + (blend[k] || 0), 0);
+    if (free.length && keptSum <= 100 - value) {
+      spread(out, blend, free, 100 - value - keptSum);
+    } else {
+      // the kept flours alone overflow (or nothing is free): squeeze them too
+      free.forEach((k) => { out[k] = 0; });
+      spread(out, blend, kept.length ? kept : free, 100 - value);
     }
-    const cur = free.map((k) => blend[k] || 0);
+    return out;
+  }
+
+  // Split `total` across `keys` in proportion to their current values
+  // (evenly if they're all zero), writing integers into `out`.
+  function spread(out, blend, keys, total) {
+    const cur = keys.map((k) => blend[k] || 0);
     const curSum = cur.reduce((a, b) => a + b, 0);
     const shares = curSum > 0
-      ? cur.map((c) => (remain * c) / curSum)
-      : cur.map(() => remain / free.length);
+      ? cur.map((c) => (total * c) / curSum)
+      : cur.map(() => total / keys.length);
     const floors = shares.map(Math.floor);
-    let left = remain - floors.reduce((a, b) => a + b, 0);
+    const left = total - floors.reduce((a, b) => a + b, 0);
     const order = shares
       .map((s, i) => [s - floors[i], i])
       .sort((a, b) => b[0] - a[0]);
     for (let i = 0; i < left; i++) floors[order[i][1]]++;
-    free.forEach((k, i) => { out[k] = floors[i]; });
-    return out;
+    keys.forEach((k, i) => { out[k] = floors[i]; });
   }
 
   // Solve the full recipe from either direction. Everything pivots on total

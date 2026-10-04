@@ -141,18 +141,23 @@ test('rebalanceBlend keeps sum at 100', () => {
   assert.equal(b.ap + b.ww + b.bread, 100);
 });
 
-test('rebalanceBlend respects a lock', () => {
-  const b = rebalanceBlend({ ap: 40, ww: 20, bread: 40 }, 'ap', 60, 'ww');
-  assert.equal(b.ww, 20);
+test('rebalanceBlend leaves kept flours alone', () => {
+  const b = rebalanceBlend({ ap: 40, ww: 20, bread: 40 }, 'ap', 60, ['ww']);
   assert.equal(b.ap, 60);
+  assert.equal(b.ww, 20);
   assert.equal(b.bread, 20);
 });
 
-test('rebalanceBlend clamps against a lock', () => {
-  const b = rebalanceBlend({ ap: 40, ww: 20, bread: 40 }, 'ap', 95, 'ww');
-  assert.equal(b.ap, 80);
-  assert.equal(b.ww, 20);
+test('rebalanceBlend squeezes kept flours only when it must', () => {
+  const b = rebalanceBlend({ ap: 40, ww: 20, bread: 40 }, 'ap', 95, ['ww']);
+  assert.equal(b.ap, 95);
   assert.equal(b.bread, 0);
+  assert.equal(b.ww, 5);
+});
+
+test('rebalanceBlend to 100 zeroes everything else', () => {
+  const b = rebalanceBlend({ ap: 40, ww: 20, bread: 40 }, 'ww', 100, ['ap']);
+  assert.deepEqual(b, { ap: 0, ww: 100, bread: 0 });
 });
 
 test('rebalanceBlend recovers from a zeroed row', () => {

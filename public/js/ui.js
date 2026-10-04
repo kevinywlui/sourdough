@@ -55,7 +55,7 @@ function normalizeBlend(b) {
 
 let state = {
   ...DEFAULTS,
-  lockedFlour: null,
+  recentFlours: [], // blend rows the user last set, newest first; not persisted
   view: 'g',
   theme: 'auto',
 };
@@ -70,7 +70,6 @@ function initUI() {
     // older storage may hold removed flours (rye, spelt) or lack newer ones
     state.blend = normalizeBlend(state.blend);
     if (!FLOURS.some((f) => f.id === state.starterFlour)) state.starterFlour = DEFAULTS.starterFlour;
-    if (!FLOURS.some((f) => f.id === state.lockedFlour)) state.lockedFlour = null;
   }
 
   buildChips($('pan-chips'), PANS,
@@ -81,7 +80,7 @@ function initUI() {
     (f) => update({ starterFlour: f.id }));
   buildChips($('blend-presets'), BLEND_PRESETS,
     (p) => p.label,
-    (p) => update({ blend: fullBlend(p.blend), lockedFlour: null }));
+    (p) => update({ blend: fullBlend(p.blend), recentFlours: [] }));
   buildBlendRows();
   wireEvents();
   applyTheme();
@@ -111,7 +110,7 @@ function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const current = {};
-    for (const k of [...RECIPE_INPUT_KEYS, 'lockedFlour', 'view']) {
+    for (const k of [...RECIPE_INPUT_KEYS, 'view']) {
       current[k] = state[k];
     }
     saveStored({ current, theme: state.theme });
@@ -137,36 +136,35 @@ function buildBlendRows() {
     const row = document.createElement('div');
     row.className = 'blend-row';
     row.innerHTML = `
-      <div class="blend-name">
-        <button class="lock-btn" type="button" aria-pressed="false" title="Lock ${flour.label}">🔓</button>
-        <span>${flour.label}</span>
-      </div>
+      <span class="blend-name">${flour.label}</span>
       <span class="field-input blend-input">
         <input type="text" inputmode="numeric" autocomplete="off" aria-label="${flour.label} percent">
         <span class="unit">%</span>
       </span>
-      <div class="blend-steppers">
-        <button class="step-btn" type="button" data-step="-5" aria-label="${flour.label} −5%">−</button>
-        <button class="step-btn" type="button" data-step="5" aria-label="${flour.label} +5%">+</button>
+      <div class="blend-quick">
+        <button class="step-btn quick-btn" type="button" data-set="0" aria-label="${flour.label} 0%">0%</button>
+        <button class="step-btn quick-btn" type="button" data-set="100" aria-label="${flour.label} 100%">100%</button>
       </div>
     `;
     const input = row.querySelector('input');
     wireNumericInput(input, (v) => setBlend(flour.id, v));
-    row.querySelectorAll('[data-step]').forEach((btn) => {
-      btn.addEventListener('click', () =>
-        setBlend(flour.id, state.blend[flour.id] + Number(btn.dataset.step)));
-    });
-    const lock = row.querySelector('.lock-btn');
-    lock.addEventListener('click', () => {
-      update({ lockedFlour: state.lockedFlour === flour.id ? null : flour.id });
+    row.querySelectorAll('[data-set]').forEach((btn) => {
+      btn.addEventListener('click', () => setBlend(flour.id, Number(btn.dataset.set)));
     });
     row.dataset.flour = flour.id;
     wrap.appendChild(row);
   }
 }
 
+// The flour just set and the one set before it stay put; the rest absorb
+// the difference. With three flours: first edit spreads over the other two,
+// the second edit lands entirely on the one not yet touched.
 function setBlend(key, value) {
-  update({ blend: rebalanceBlend(state.blend, key, value, state.lockedFlour) });
+  const keep = state.recentFlours.filter((k) => k !== key).slice(0, 1);
+  update({
+    blend: rebalanceBlend(state.blend, key, value, keep),
+    recentFlours: [key, ...keep],
+  });
 }
 
 /* ---------- events ---------- */
@@ -259,10 +257,8 @@ function renderBlend() {
     const id = row.dataset.flour;
     const pct = state.blend[id];
     setInputValue(row.querySelector('input'), pct);
-    const lock = row.querySelector('.lock-btn');
-    const locked = state.lockedFlour === id;
-    lock.setAttribute('aria-pressed', locked);
-    lock.textContent = locked ? '🔒' : '🔓';
+    row.querySelector('[data-set="0"]').disabled = pct === 0;
+    row.querySelector('[data-set="100"]').disabled = pct === 100;
   }
 }
 
