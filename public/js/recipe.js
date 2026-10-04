@@ -25,16 +25,12 @@
     { id: 'ap', label: 'All-purpose', short: 'AP', hydration: 0.67 },
     { id: 'ww', label: 'Whole wheat', short: 'WW', hydration: 0.80 },
     { id: 'bread', label: 'Bread flour', short: 'Bread', hydration: 0.72 },
-    { id: 'rye', label: 'Rye', short: 'Rye', hydration: 0.85 },
-    { id: 'spelt', label: 'Spelt', short: 'Spelt', hydration: 0.68 },
   ];
 
   // Preset dough weights ≈ 0.43 g per mL of pan volume, rounded to 50 g.
   const PANS = [
     { id: 'loaf85', label: '8.5×4.5″', grams: 750 },
     { id: 'loaf9', label: '9×5″', grams: 900 },
-    { id: 'pullman9', label: 'Pullman 9×4×4', grams: 1000 },
-    { id: 'pullman13', label: 'Pullman 13×4×4', grams: 1450 },
     { id: 'mini', label: 'Mini 5.75×3', grams: 250 },
   ];
 
@@ -50,7 +46,7 @@
   const DEFAULTS = {
     doughG: 900,
     starterG: 100,
-    blend: { ap: 40, ww: 20, bread: 40, rye: 0, spelt: 0 },
+    blend: { ap: 40, ww: 20, bread: 40 },
     starterFlour: 'ap',
     saltPct: 2,
     hydrationOffset: 0,

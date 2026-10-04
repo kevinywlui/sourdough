@@ -30,16 +30,6 @@ function saveStored(data) {
   } catch { /* degrade to in-memory */ }
 }
 
-function storageAvailable() {
-  try {
-    localStorage.setItem('__sd_test', '1');
-    localStorage.removeItem('__sd_test');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 const RECIPE_INPUT_KEYS = ['doughG', 'starterG', 'blend', 'starterFlour', 'saltPct', 'hydrationOffset'];
 
 // Blends may be sparse here; fullBlend() fills the missing flours with 0.
@@ -53,26 +43,34 @@ const BLEND_PRESETS = [
 const fullBlend = (b = {}) =>
   Object.fromEntries(FLOURS.map((f) => [f.id, b[f.id] || 0]));
 
+// Drop unknown flours; if that leaves the blend short of 100, scale it back up.
+function normalizeBlend(b) {
+  const out = fullBlend(b);
+  const sum = FLOURS.reduce((a, f) => a + out[f.id], 0);
+  if (sum === 100) return out;
+  if (sum === 0) return fullBlend(DEFAULTS.blend);
+  const [first, ...rest] = FLOURS;
+  return rebalanceBlend(out, first.id, (out[first.id] / sum) * 100);
+}
+
 let state = {
   ...DEFAULTS,
   lockedFlour: null,
   view: 'g',
-  saved: [],
-  confirmDeleteId: null,
   theme: 'auto',
 };
 
-let draggingSlider = null;
 let saveTimer = null;
-let toastTimer = null;
 
 function initUI() {
   const stored = loadStored();
   if (stored) {
     if (stored.current) state = { ...state, ...stored.current };
-    if (Array.isArray(stored.saved)) state.saved = stored.saved;
     state.theme = stored.theme || stored.prefs?.theme || 'auto';
-    state.blend = fullBlend(state.blend); // older storage may lack newer flours
+    // older storage may hold removed flours (rye, spelt) or lack newer ones
+    state.blend = normalizeBlend(state.blend);
+    if (!FLOURS.some((f) => f.id === state.starterFlour)) state.starterFlour = DEFAULTS.starterFlour;
+    if (!FLOURS.some((f) => f.id === state.lockedFlour)) state.lockedFlour = null;
   }
 
   buildChips($('pan-chips'), PANS,
@@ -88,11 +86,6 @@ function initUI() {
   wireEvents();
   applyTheme();
   render();
-
-  if (!storageAvailable()) {
-    $('storage-note').hidden = false;
-    $('save-open').disabled = true;
-  }
 
   // Sticky gram summary once the recipe card scrolls off the TOP of the
   // viewport. A scroll listener, not an IntersectionObserver: a fast jump
@@ -121,7 +114,7 @@ function persist() {
     for (const k of [...RECIPE_INPUT_KEYS, 'lockedFlour', 'view']) {
       current[k] = state[k];
     }
-    saveStored({ current, saved: state.saved, theme: state.theme });
+    saveStored({ current, theme: state.theme });
   }, 200);
 }
 
@@ -148,18 +141,17 @@ function buildBlendRows() {
         <button class="lock-btn" type="button" aria-pressed="false" title="Lock ${flour.label}">🔓</button>
         <span>${flour.label}</span>
       </div>
-      <span class="blend-pct" data-pct></span>
+      <span class="field-input blend-input">
+        <input type="text" inputmode="numeric" autocomplete="off" aria-label="${flour.label} percent">
+        <span class="unit">%</span>
+      </span>
       <div class="blend-steppers">
         <button class="step-btn" type="button" data-step="-5" aria-label="${flour.label} −5%">−</button>
         <button class="step-btn" type="button" data-step="5" aria-label="${flour.label} +5%">+</button>
       </div>
-      <input class="blend-slider" type="range" min="0" max="100" step="1" aria-label="${flour.label} percent">
     `;
-    const slider = row.querySelector('.blend-slider');
-    // Track drags with pointer events: on touch, range inputs never become
-    // document.activeElement, so a focus check can't protect a live drag.
-    slider.addEventListener('pointerdown', () => { draggingSlider = slider; });
-    slider.addEventListener('input', () => setBlend(flour.id, Number(slider.value)));
+    const input = row.querySelector('input');
+    wireNumericInput(input, (v) => setBlend(flour.id, v));
     row.querySelectorAll('[data-step]').forEach((btn) => {
       btn.addEventListener('click', () =>
         setBlend(flour.id, state.blend[flour.id] + Number(btn.dataset.step)));
@@ -180,9 +172,6 @@ function setBlend(key, value) {
 /* ---------- events ---------- */
 
 function wireEvents() {
-  window.addEventListener('pointerup', endSliderDrag);
-  window.addEventListener('pointercancel', endSliderDrag);
-
   const saltStep = (d) => update({
     saltPct: clamp(Math.round((state.saltPct + d) * 4) / 4, LIMITS.saltPct.min, LIMITS.saltPct.max),
   });
@@ -206,13 +195,6 @@ function wireEvents() {
   $('sticky-bar').addEventListener('click', () =>
     $('recipe-card').scrollIntoView({ behavior: 'smooth', block: 'center' }));
 
-  $('save-open').addEventListener('click', openSaveForm);
-  $('save-cancel').addEventListener('click', () => { $('save-form').hidden = true; $('save-open').hidden = false; });
-  $('save-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    saveCurrentRecipe($('save-name').value.trim());
-  });
-
   $('theme-toggle').addEventListener('click', cycleTheme);
 }
 
@@ -227,17 +209,13 @@ function wireNumericInput(input, onValue) {
   });
 }
 
-function endSliderDrag() {
-  if (draggingSlider) {
-    draggingSlider = null;
-    render(); // final sync in case the last drag position was clamped
-  }
-}
-
-// Write the canonical values into both numeric fields, focus or not.
+// Write the canonical values into every numeric field, focus or not.
 function syncNumericInputs() {
   $('dough-input').value = Math.round(state.doughG);
   $('starter-input').value = Math.round(state.starterG);
+  for (const row of $('blend-rows').children) {
+    row.querySelector('input').value = state.blend[row.dataset.flour];
+  }
 }
 
 /* ---------- render ---------- */
@@ -250,7 +228,6 @@ function render() {
   renderHydration(result);
   renderRecipe(result);
   renderStickyBar(result);
-  renderSaved();
 }
 
 function setInputValue(input, value) {
@@ -281,10 +258,7 @@ function renderBlend() {
   for (const row of $('blend-rows').children) {
     const id = row.dataset.flour;
     const pct = state.blend[id];
-    row.querySelector('[data-pct]').textContent = `${pct}%`;
-    const slider = row.querySelector('.blend-slider');
-    if (draggingSlider !== slider) slider.value = pct;
-    slider.style.setProperty('--fill', `${pct}%`);
+    setInputValue(row.querySelector('input'), pct);
     const lock = row.querySelector('.lock-btn');
     const locked = state.lockedFlour === id;
     lock.setAttribute('aria-pressed', locked);
@@ -355,101 +329,7 @@ function updateStickyBar() {
   $('sticky-bar').hidden = cardBottom > 56;
 }
 
-/* ---------- saved recipes ---------- */
-
-function openSaveForm() {
-  $('save-open').hidden = true;
-  const form = $('save-form');
-  form.hidden = false;
-  const input = $('save-name');
-  input.value = autoName();
-  input.focus();
-  input.select();
-}
-
-function autoName() {
-  const parts = FLOURS
-    .filter((f) => state.blend[f.id] > 0)
-    .map((f) => `${state.blend[f.id]} ${f.id}`);
-  const result = solve(state);
-  return `${parts.join(' / ')} · ${result.weigh.total} g`;
-}
-
-function saveCurrentRecipe(name) {
-  if (!name) name = autoName();
-  const inputs = {};
-  for (const k of RECIPE_INPUT_KEYS) inputs[k] = state[k];
-  const saved = [
-    { id: `r_${Date.now()}`, name, inputs, updatedAt: new Date().toISOString() },
-    ...state.saved,
-  ].slice(0, 50);
-  $('save-form').hidden = true;
-  $('save-open').hidden = false;
-  update({ saved });
-  toast(`Saved “${name}”`);
-}
-
-function renderSaved() {
-  const list = $('saved-list');
-  list.textContent = '';
-  for (const recipe of state.saved) {
-    const li = document.createElement('li');
-    li.className = 'saved-row';
-
-    // The confirm prompt lives in state so an unrelated render (a stepper
-    // tap elsewhere) rebuilds it instead of dismissing it.
-    if (state.confirmDeleteId === recipe.id) {
-      const wrap = document.createElement('div');
-      wrap.className = 'saved-confirm';
-      const label = document.createElement('span');
-      label.textContent = `Delete “${recipe.name}”?`;
-      const del = document.createElement('button');
-      del.className = 'danger-btn'; del.type = 'button'; del.textContent = 'Delete';
-      del.addEventListener('click', () => {
-        update({
-          saved: state.saved.filter((r) => r.id !== recipe.id),
-          confirmDeleteId: null,
-        });
-      });
-      const cancel = document.createElement('button');
-      cancel.className = 'link-btn'; cancel.type = 'button'; cancel.textContent = 'Cancel';
-      cancel.addEventListener('click', () => update({ confirmDeleteId: null }));
-      wrap.append(label, del, cancel);
-      li.appendChild(wrap);
-      list.appendChild(li);
-      continue;
-    }
-
-    const blend = recipe.inputs.blend || {};
-    const summary = FLOURS
-      .filter((f) => blend[f.id] > 0)
-      .map((f) => `${blend[f.id]}% ${f.id}`)
-      .join(' · ');
-    li.innerHTML = `
-      <button class="saved-main" type="button">
-        <span class="saved-name"></span>
-        <span class="saved-sub">${summary}</span>
-      </button>
-      <button class="saved-del" type="button" aria-label="Delete recipe">✕</button>
-    `;
-    li.querySelector('.saved-name').textContent = recipe.name;
-    li.querySelector('.saved-main').addEventListener('click', () => {
-      const inputs = {};
-      for (const k of RECIPE_INPUT_KEYS) {
-        if (recipe.inputs[k] !== undefined) inputs[k] = recipe.inputs[k];
-      }
-      if (inputs.blend) inputs.blend = fullBlend(inputs.blend);
-      update(inputs);
-      toast(`Loaded “${recipe.name}”`);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-    li.querySelector('.saved-del').addEventListener('click', () =>
-      update({ confirmDeleteId: recipe.id }));
-    list.appendChild(li);
-  }
-}
-
-/* ---------- theme and toast ---------- */
+/* ---------- theme ---------- */
 
 function applyTheme() {
   const root = document.documentElement;
@@ -464,14 +344,6 @@ function cycleTheme() {
   state.theme = order[(order.indexOf(state.theme) + 1) % order.length];
   applyTheme();
   persist();
-}
-
-function toast(msg) {
-  const el = $('toast');
-  el.textContent = msg;
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 2500);
 }
 
 initUI();

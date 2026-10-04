@@ -44,7 +44,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Author display rules (e.g. .save-form { display: flex }) would otherwise
+/* Author display rules (e.g. .suggest-row { display: flex }) would otherwise
    defeat the UA's [hidden] { display: none } and break every hidden toggle. */
 [hidden] { display: none !important; }
 
@@ -111,7 +111,6 @@ main {
   main > section:nth-of-type(1) { grid-column: 1; }
   main > section:nth-of-type(2) { grid-column: 1; }
   main > section:nth-of-type(3) { grid-column: 1; }
-  main > section:nth-of-type(5) { grid-column: 1 / -1; }
 }
 
 .section-label {
@@ -209,9 +208,9 @@ main {
 /* ---------- Blend rows ---------- */
 .blend-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas: "name pct steppers" "slider slider slider";
-  align-items: center; gap: var(--s1) var(--s3);
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas: "name pct steppers";
+  align-items: center; gap: var(--s3);
   padding: var(--s3) 0;
   border-bottom: 1px solid var(--border);
 }
@@ -226,43 +225,9 @@ main {
   background: var(--surface-2);
   box-shadow: inset 0 0 0 2px var(--accent);
 }
-.blend-pct {
-  grid-area: pct; text-align: right;
-  font-size: 1.375rem; font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
+.blend-input { grid-area: pct; width: 5.5em; height: 44px; }
+.blend-input input { text-align: right; padding-right: 2px; }
 .blend-steppers { grid-area: steppers; display: flex; gap: var(--s1); }
-.blend-slider { grid-area: slider; width: 100%; }
-
-input[type="range"] {
-  -webkit-appearance: none; appearance: none;
-  width: 100%; height: 44px; background: none;
-  /* Only the thumb takes touches (see the thumb rules below), so a scroll
-     swipe that lands on the track can't change the value. */
-  pointer-events: none;
-  touch-action: pan-y;
-}
-input[type="range"]::-webkit-slider-runnable-track {
-  height: 6px; border-radius: 3px;
-  background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--surface-2) var(--fill, 0%));
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 28px; height: 28px; margin-top: -11px;
-  border-radius: 50%; background: var(--surface);
-  border: 2px solid var(--accent);
-  box-shadow: var(--card-shadow);
-  pointer-events: auto;
-}
-input[type="range"]::-moz-range-track {
-  height: 6px; border-radius: 3px; background: var(--surface-2);
-}
-input[type="range"]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
-input[type="range"]::-moz-range-thumb {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: var(--surface); border: 2px solid var(--accent);
-  pointer-events: auto;
-}
 
 /* ---------- Hydration ---------- */
 .hydration-row { display: flex; align-items: center; justify-content: space-between; }
@@ -300,10 +265,6 @@ input[type="range"]::-moz-range-thumb {
 .warnings { margin-top: var(--s2); }
 .warnings p { font-size: 0.875rem; color: var(--accent); padding: var(--s1) 0; }
 
-.link-btn {
-  color: var(--accent); font-size: 0.875rem; font-weight: 600;
-  min-height: 44px; padding: 0 var(--s2);
-}
 .suggest-row {
   display: flex; align-items: center; justify-content: flex-end;
   gap: var(--s2); margin-top: var(--s2); flex-wrap: wrap;
@@ -311,36 +272,6 @@ input[type="range"]::-moz-range-thumb {
 .suggest-row .field-note { margin-top: 0; }
 .chip-accent {
   border-color: var(--accent); color: var(--accent); font-weight: 600;
-}
-
-/* ---------- Saved recipes ---------- */
-.secondary-btn {
-  min-height: 44px; padding: 0 var(--s4);
-  border: 1px solid var(--border); border-radius: 12px;
-  background: var(--surface); font-weight: 600;
-}
-.save-form { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
-.save-form input {
-  flex: 1; min-width: 160px; height: 44px;
-  padding: 0 var(--s3);
-  border: 1px solid var(--border); border-radius: 12px;
-  background: var(--surface); color: inherit;
-  font-size: 1rem;
-}
-.saved-list { list-style: none; margin-top: var(--s3); }
-.saved-row {
-  display: flex; align-items: center; gap: var(--s2);
-  min-height: 60px; padding: var(--s2) 0;
-  border-bottom: 1px solid var(--border);
-}
-.saved-main { flex: 1; text-align: left; min-height: 44px; padding: var(--s1) 0; }
-.saved-name { font-size: 1.0625rem; font-weight: 600; display: block; }
-.saved-sub { font-size: 0.875rem; color: var(--text-muted); }
-.saved-del { min-width: 44px; min-height: 44px; color: var(--text-muted); font-size: 1.125rem; border-radius: 10px; }
-.saved-confirm { display: flex; align-items: center; gap: var(--s2); flex: 1; justify-content: flex-end; font-size: 0.875rem; }
-.danger-btn {
-  min-height: 40px; padding: 0 var(--s3);
-  border-radius: 10px; background: #B3403A; color: #fff; font-weight: 600;
 }
 
 /* ---------- Explainer ---------- */
@@ -354,18 +285,6 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.875rem; color: var(--text-muted);
   margin-bottom: var(--s3); max-width: 60ch;
 }
-
-/* ---------- Toast ---------- */
-.toast {
-  position: fixed; left: 50%; bottom: calc(var(--s5) + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  background: var(--text); color: var(--bg);
-  padding: var(--s3) var(--s4); border-radius: 12px;
-  font-size: 0.9375rem; font-weight: 500;
-  z-index: 30; max-width: calc(100vw - 32px);
-  animation: toast-in 0.2s ease-out;
-}
-@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
