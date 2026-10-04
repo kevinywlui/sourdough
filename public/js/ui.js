@@ -327,12 +327,22 @@ function updateStickyBar() {
 
 /* ---------- theme ---------- */
 
+// Inline SVG so the icons render the same size in every font.
+const THEME_LABELS = {
+  auto: ['<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>', 'Auto'],
+  light: ['<circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>', 'Light'],
+  dark: ['<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="currentColor"/>', 'Dark'],
+};
+
 function applyTheme() {
   const root = document.documentElement;
   if (state.theme === 'auto') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', state.theme);
-  $('theme-toggle').title = `Theme: ${state.theme}`;
-  $('theme-toggle').textContent = { auto: '◐', light: '☀', dark: '☾' }[state.theme];
+  const [icon, name] = THEME_LABELS[state.theme];
+  const btn = $('theme-toggle');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${name}`;
+  btn.setAttribute('aria-label', `Theme: ${name}. Tap to change.`);
+  btn.title = 'Change theme';
 }
 
 function cycleTheme() {

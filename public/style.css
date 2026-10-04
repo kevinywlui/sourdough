@@ -74,11 +74,15 @@ button:focus-visible, input:focus-visible {
 }
 .topbar h1 { font-size: 1.25rem; font-weight: 700; }
 .topbar-actions { display: flex; gap: var(--s2); }
-.icon-btn {
-  min-width: 44px; min-height: 44px;
-  border-radius: 10px; font-size: 1.0625rem; font-weight: 600;
+.theme-btn {
+  min-height: 40px; padding: 0 var(--s3);
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.9375rem; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
 }
-.icon-btn:active { background: var(--surface-2); }
+.theme-btn svg { width: 18px; height: 18px; }
+.theme-btn:active { background: var(--surface-2); }
 
 /* ---------- Sticky summary bar ---------- */
 .sticky-bar {
